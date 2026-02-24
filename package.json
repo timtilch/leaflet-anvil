@@ -1,0 +1,36 @@
+{
+  "name": "leaflet-anvil",
+  "version": "0.1.0",
+  "description": "A minimal drawing and editing toolkit for Leaflet.",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite example",
+    "build": "tsup src/index.ts --format esm,cjs --dts",
+    "prepare": "npm run build"
+  },
+  "peerDependencies": {
+    "leaflet": "^1.9.4"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.21",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  },
+  "keywords": [
+    "leaflet",
+    "draw",
+    "edit",
+    "map",
+    "geometry"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@turf/turf": "^7.3.4"
+  }
+}
