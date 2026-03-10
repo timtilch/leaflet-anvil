@@ -31,14 +31,14 @@ describe('ModeManager', () => {
         map.remove();
     });
 
-    it('enable() ruft enable() des registrierten Modus auf', () => {
+    it('enable() calls enable() on the registered mode', () => {
         const mode = makeMockMode();
         manager.addMode('test', mode);
         manager.enable('test');
         expect(mode.enableCalled).toBe(true);
     });
 
-    it('enable() feuert anvil:modechange-Event mit dem Modus-Namen', () => {
+    it('enable() fires anvil:modechange event with the mode name', () => {
         const mode = makeMockMode();
         manager.addMode('test', mode);
         const handler = vi.fn();
@@ -48,14 +48,31 @@ describe('ModeManager', () => {
         expect(handler.mock.calls[0][0]).toMatchObject({ mode: 'test' });
     });
 
-    it('enable() auf einen unbekannten Modus loggt eine Warnung und tut nichts', () => {
-        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {
-        });
-        manager.enable('unknown');
-        expect(warn).toHaveBeenCalledOnce();
+    it('enable() deactivates the previous mode before activating the new one', () => {
+        const m1 = makeMockMode();
+        const m2 = makeMockMode();
+        manager.addMode('m1', m1);
+        manager.addMode('m2', m2);
+
+        manager.enable('m1');
+        manager.enable('m2');
+
+        expect(m1.disableCalled).toBe(true);
+        expect(m2.enableCalled).toBe(true);
     });
 
-    it('disable() ruft disable() des aktiven Modus auf', () => {
+    it('enable() does nothing if the mode is already active', () => {
+        const m1 = makeMockMode();
+        manager.addMode('m1', m1);
+
+        manager.enable('m1');
+        m1.enableCalled = false; // Reset flag for next call
+
+        manager.enable('m1');
+        expect(m1.enableCalled).toBe(false);
+    });
+
+    it('disable() deactivates the active mode', () => {
         const mode = makeMockMode();
         manager.addMode('test', mode);
         manager.enable('test');
@@ -63,42 +80,34 @@ describe('ModeManager', () => {
         expect(mode.disableCalled).toBe(true);
     });
 
-    it('disable() feuert anvil:modechange-Event mit null', () => {
+    it('disable() fires anvil:modechange event with null', () => {
         const mode = makeMockMode();
         manager.addMode('test', mode);
         manager.enable('test');
+
         const handler = vi.fn();
         map.on(ANVIL_EVENTS.MODE_CHANGE, handler);
+
         manager.disable();
+
+        expect(handler).toHaveBeenCalledOnce();
         expect(handler.mock.calls[0][0]).toMatchObject({ mode: null });
     });
 
-    it('disable() tut nichts wenn kein Modus aktiv ist', () => {
-        // Kein Fehler erwartet
-        expect(() => manager.disable()).not.toThrow();
+    it('disable() does nothing if no mode is active', () => {
+        const handler = vi.fn();
+        map.on(ANVIL_EVENTS.MODE_CHANGE, handler);
+
+        manager.disable();
+        expect(handler).not.toHaveBeenCalled();
     });
 
-    it('wechsel zwischen zwei Modi: alter Modus wird deaktiviert', () => {
-        const modeA = makeMockMode();
-        const modeB = makeMockMode();
-        manager.addMode('a', modeA);
-        manager.addMode('b', modeB);
-
-        manager.enable('a');
-        manager.enable('b');
-
-        expect(modeA.disableCalled).toBe(true);
-        expect(modeB.enableCalled).toBe(true);
-    });
-
-    it('nochmaliges enable() desselben Modus hat keinen Effekt', () => {
-        const mode = makeMockMode();
-        manager.addMode('test', mode);
-        manager.enable('test');
-        // Zurücksetzen
-        mode.enableCalled = false;
-        manager.enable('test');
-        expect(mode.enableCalled).toBe(false);
+    it('enable() prints warning for non-existent mode', () => {
+        const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {
+        });
+        manager.enable('notfound');
+        expect(warnSpy).toHaveBeenCalledOnce();
+        expect(warnSpy.mock.calls[0][0]).toContain('Mode "notfound" not found');
+        warnSpy.mockRestore();
     });
 });
-

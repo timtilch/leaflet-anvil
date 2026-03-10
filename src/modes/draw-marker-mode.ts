@@ -24,7 +24,7 @@ export class DrawMarkerMode implements Mode {
 
     private onClick(e: L.LeafletMouseEvent): void {
         const latlng = this.store ? getSnapLatLng(this.map, e.latlng, this.store, this.options) : e.latlng;
-        const marker = L.marker(latlng).addTo(this.map);
+        const marker = L.marker(latlng, this.options.vertexOptions).addTo(this.map);
         this.map.fire(ANVIL_EVENTS.CREATED, { layer: marker });
     }
 }

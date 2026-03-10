@@ -5,6 +5,7 @@ import { ANVIL_EVENTS } from '../events';
 import { getSnapLatLng } from '../utils/snapping';
 
 export class DragMode implements Mode {
+    private isEnabled = false;
     private draggingLayer: L.Layer | null = null;
     private startLatLng: L.LatLng | null = null;
     private initialLatLngs: any = null;
@@ -14,25 +15,40 @@ export class DragMode implements Mode {
         private store: LayerStore,
         private options: AnvilOptions = {},
     ) {
+        this.store.getGroup().on('layeradd', (e: any) => {
+            if (this.isEnabled) {
+                this.addLayerListener(e.layer);
+            }
+        });
     }
 
     enable(): void {
+        this.isEnabled = true;
         this.store.getGroup().eachLayer(layer => {
-            if (layer instanceof L.Path || layer instanceof L.Marker) {
-                layer.on('mousedown', this.onMouseDown, this);
-                (layer.getElement() as HTMLElement)?.style.setProperty('cursor', 'move');
-            }
+            this.addLayerListener(layer);
         });
     }
 
     disable(): void {
+        this.isEnabled = false;
         this.store.getGroup().eachLayer(layer => {
-            if (layer instanceof L.Path || layer instanceof L.Marker) {
-                layer.off('mousedown', this.onMouseDown, this);
-                (layer.getElement() as HTMLElement)?.style.setProperty('cursor', '');
-            }
+            this.removeLayerListener(layer);
         });
         this.stopDragging();
+    }
+
+    private addLayerListener(layer: L.Layer): void {
+        if (layer instanceof L.Path || layer instanceof L.Marker) {
+            layer.on('mousedown', this.onMouseDown, this);
+            (layer.getElement() as HTMLElement)?.style.setProperty('cursor', 'move');
+        }
+    }
+
+    private removeLayerListener(layer: L.Layer): void {
+        if (layer instanceof L.Path || layer instanceof L.Marker) {
+            layer.off('mousedown', this.onMouseDown, this);
+            (layer.getElement() as HTMLElement)?.style.setProperty('cursor', '');
+        }
     }
 
     private onMouseDown(e: L.LeafletMouseEvent): void {

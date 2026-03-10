@@ -12,6 +12,9 @@ export function getSnapLatLng(
 ): L.LatLng {
     if (!options.snapping) return latlng;
 
+    // Ensure additionalPoints is an array
+    const verifiedAdditionalPoints = Array.isArray(additionalPoints) ? additionalPoints : [];
+
     const snapDistance = options.snapDistance || 10;
     const basePoint = map.latLngToContainerPoint(latlng);
 
@@ -58,7 +61,7 @@ export function getSnapLatLng(
         });
     });
 
-    additionalPoints.forEach(p => {
+    verifiedAdditionalPoints.forEach(p => {
         const containerPoint = map.latLngToContainerPoint(p);
         const dist = basePoint.distanceTo(containerPoint);
         if (dist < minDistance) {

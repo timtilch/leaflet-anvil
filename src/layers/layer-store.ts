@@ -23,5 +23,8 @@ export class LayerStore {
     getGroup(): L.FeatureGroup {
         return this.group;
     }
-}
 
+    getLayers(): L.Layer[] {
+        return this.group.getLayers();
+    }
+}

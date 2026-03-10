@@ -4,25 +4,42 @@ import { ANVIL_EVENTS } from '../events';
 import { LayerStore } from '../layers/layer-store';
 
 export class DeleteMode implements Mode {
+    private isEnabled = false;
+
     constructor(private map: L.Map, private store: LayerStore) {
+        this.store.getGroup().on('layeradd', (e: any) => {
+            if (this.isEnabled) {
+                this.addLayerListener(e.layer);
+            }
+        });
     }
 
     enable(): void {
+        this.isEnabled = true;
         this.store.getGroup().eachLayer(layer => {
-            layer.on('click', this.onClick, this);
-            if (layer instanceof L.Path || layer instanceof L.Marker) {
-                (layer.getElement() as HTMLElement)?.style.setProperty('cursor', 'pointer');
-            }
+            this.addLayerListener(layer);
         });
     }
 
     disable(): void {
+        this.isEnabled = false;
         this.store.getGroup().eachLayer(layer => {
-            layer.off('click', this.onClick, this);
-            if (layer instanceof L.Path || layer instanceof L.Marker) {
-                (layer.getElement() as HTMLElement)?.style.setProperty('cursor', '');
-            }
+            this.removeLayerListener(layer);
         });
+    }
+
+    private addLayerListener(layer: L.Layer): void {
+        layer.on('click', this.onClick, this);
+        if (layer instanceof L.Path || layer instanceof L.Marker) {
+            (layer.getElement() as HTMLElement)?.style.setProperty('cursor', 'pointer');
+        }
+    }
+
+    private removeLayerListener(layer: L.Layer): void {
+        layer.off('click', this.onClick, this);
+        if (layer instanceof L.Path || layer instanceof L.Marker) {
+            (layer.getElement() as HTMLElement)?.style.setProperty('cursor', '');
+        }
     }
 
     private onClick(e: L.LeafletMouseEvent): void {

@@ -24,7 +24,7 @@ describe('SubtractMode', () => {
         map.remove();
     });
 
-    it('erster Klick setzt das Basis-Polygon, noch kein Event', () => {
+    it('first click sets base polygon, no event yet', () => {
         const base = L.polygon(poly1Coords).addTo(map);
         store.addLayer(base);
         mode.enable();
@@ -37,7 +37,7 @@ describe('SubtractMode', () => {
         expect(handler).not.toHaveBeenCalled();
     });
 
-    it('Subtraktion zweier Polygone → deleted-Event für beide, created für Ergebnis', () => {
+    it('subtracting two polygons → deleted event for both, created for result', () => {
         const base = L.polygon(poly1Coords).addTo(map);
         const hole = L.polygon(poly2Coords).addTo(map);
         store.addLayer(base);
@@ -49,25 +49,29 @@ describe('SubtractMode', () => {
         map.on(ANVIL_EVENTS.DELETED, deletedHandler);
         map.on(ANVIL_EVENTS.CREATED, createdHandler);
 
-        fireLayerClick(base, 0.5, 0.5);
+        fireLayerClick(base, 2, 2);
         fireLayerClick(hole, 2, 2);
 
         expect(deletedHandler).toHaveBeenCalledTimes(2);
-        expect(createdHandler).toHaveBeenCalled();
+        expect(createdHandler).toHaveBeenCalledOnce();
+
+        const resultLayer = createdHandler.mock.calls[0][0].layer as L.Polygon;
+        expect(resultLayer).toBeInstanceOf(L.Polygon);
     });
 
-    it('Klick auf dasselbe Polygon zweimal → Reset, kein Event', () => {
+    it('Escape resets the selection', () => {
         const base = L.polygon(poly1Coords).addTo(map);
         store.addLayer(base);
         mode.enable();
 
-        const handler = vi.fn();
-        map.on(ANVIL_EVENTS.DELETED, handler);
-
         fireLayerClick(base, 2, 2);
-        fireLayerClick(base, 2, 2);
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 
-        expect(handler).not.toHaveBeenCalled();
+        const deletedHandler = vi.fn();
+        map.on(ANVIL_EVENTS.DELETED, deletedHandler);
+
+        // Clicking the same polygon again should be seen as the new FIRST click
+        fireLayerClick(base, 2, 2);
+        expect(deletedHandler).not.toHaveBeenCalled();
     });
 });
-

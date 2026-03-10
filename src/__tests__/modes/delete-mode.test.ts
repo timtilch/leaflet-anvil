@@ -21,7 +21,7 @@ describe('DeleteMode', () => {
         map.remove();
     });
 
-    it('enable() registriert Click-Listener auf vorhandenen Layern', () => {
+    it('enable() registers click listener on existing layers', () => {
         const polygon = L.polygon([[0, 0], [1, 0], [0, 1]]).addTo(map);
         store.addLayer(polygon);
         const spy = vi.spyOn(polygon, 'on');
@@ -31,7 +31,7 @@ describe('DeleteMode', () => {
         expect(spy).toHaveBeenCalledWith('click', expect.any(Function), expect.anything());
     });
 
-    it('disable() entfernt Click-Listener', () => {
+    it('disable() removes click listener', () => {
         const polygon = L.polygon([[0, 0], [1, 0], [0, 1]]).addTo(map);
         store.addLayer(polygon);
         mode.enable();
@@ -42,7 +42,7 @@ describe('DeleteMode', () => {
         expect(spy).toHaveBeenCalledWith('click', expect.any(Function), expect.anything());
     });
 
-    it('Klick auf Layer entfernt ihn von der Karte und feuert anvil:deleted', () => {
+    it('click on layer removes it from the map and fires anvil:deleted', () => {
         const polygon = L.polygon([[0, 0], [1, 0], [0, 1]]).addTo(map);
         store.addLayer(polygon);
         mode.enable();
@@ -50,25 +50,20 @@ describe('DeleteMode', () => {
         const handler = vi.fn();
         map.on(ANVIL_EVENTS.DELETED, handler);
 
-        fireLayerClick(polygon, 0.3, 0.3);
+        fireLayerClick(polygon);
 
         expect(handler).toHaveBeenCalledOnce();
         expect(handler.mock.calls[0][0]).toMatchObject({ layer: polygon });
         expect(map.hasLayer(polygon)).toBe(false);
     });
 
-    it('nach disable() werden keine weiteren Delete-Events ausgelöst', () => {
-        const polygon = L.polygon([[0, 0], [1, 0], [0, 1]]).addTo(map);
-        store.addLayer(polygon);
+    it('newly added layer to store also gets click listener if mode is enabled', () => {
         mode.enable();
-        mode.disable();
+        const marker = L.marker([0, 0]).addTo(map);
 
-        const handler = vi.fn();
-        map.on(ANVIL_EVENTS.DELETED, handler);
+        const spy = vi.spyOn(marker, 'on');
+        store.addLayer(marker);
 
-        fireLayerClick(polygon, 0.3, 0.3);
-
-        expect(handler).not.toHaveBeenCalled();
+        expect(spy).toHaveBeenCalledWith('click', expect.any(Function), expect.anything());
     });
 });
-

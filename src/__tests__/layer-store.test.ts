@@ -16,49 +16,51 @@ describe('LayerStore', () => {
         map.remove();
     });
 
-    it('erstellt intern eine FeatureGroup und fügt sie der Karte hinzu', () => {
+    it('creates a FeatureGroup internally and adds it to the map', () => {
         const group = store.getGroup();
         expect(group).toBeInstanceOf(L.FeatureGroup);
         expect(map.hasLayer(group)).toBe(true);
     });
 
-    it('verwendet eine übergebene externe FeatureGroup', () => {
+    it('uses a provided external FeatureGroup', () => {
         const external = L.featureGroup();
         const storeWithGroup = new LayerStore(map, external);
         expect(storeWithGroup.getGroup()).toBe(external);
     });
 
-    it('addLayer – Layer wird zur Gruppe hinzugefügt', () => {
+    it('addLayer – adds layer to the group', () => {
         const marker = L.marker([51.5, -0.1]);
         store.addLayer(marker);
         expect(store.hasLayer(marker)).toBe(true);
     });
 
-    it('removeLayer – Layer wird aus der Gruppe entfernt', () => {
+    it('removeLayer – removes layer from the group', () => {
         const marker = L.marker([51.5, -0.1]);
         store.addLayer(marker);
         store.removeLayer(marker);
         expect(store.hasLayer(marker)).toBe(false);
     });
 
-    it('hasLayer gibt false zurück für einen nicht enthaltenen Layer', () => {
+    it('hasLayer returns false for a layer not in the group', () => {
         const marker = L.marker([51.5, -0.1]);
         expect(store.hasLayer(marker)).toBe(false);
     });
 
-    it('getGroup gibt dieselbe Instanz zurück', () => {
+    it('getGroup returns the same instance', () => {
         const g1 = store.getGroup();
         const g2 = store.getGroup();
         expect(g1).toBe(g2);
     });
 
-    it('mehrere Layer können hinzugefügt werden', () => {
+    it('getLayers returns all layers in the group', () => {
         const m1 = L.marker([51.5, -0.1]);
-        const m2 = L.marker([51.6, -0.2]);
+        const m2 = L.marker([51.5, -0.2]);
         store.addLayer(m1);
         store.addLayer(m2);
-        expect(store.hasLayer(m1)).toBe(true);
-        expect(store.hasLayer(m2)).toBe(true);
+
+        const layers = store.getLayers();
+        expect(layers).toContain(m1);
+        expect(layers).toContain(m2);
+        expect(layers.length).toBe(2);
     });
 });
-

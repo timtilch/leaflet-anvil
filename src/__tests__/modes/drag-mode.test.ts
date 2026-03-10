@@ -42,7 +42,7 @@ describe('DragMode', () => {
         map.remove();
     });
 
-    it('enable() registriert mousedown auf vorhandenen Layern', () => {
+    it('enable() registers mousedown on existing layers', () => {
         const marker = L.marker([51.5, -0.1]).addTo(map);
         store.addLayer(marker);
         const spy = vi.spyOn(marker, 'on');
@@ -52,7 +52,7 @@ describe('DragMode', () => {
         expect(spy).toHaveBeenCalledWith('mousedown', expect.any(Function), expect.anything());
     });
 
-    it('disable() entfernt mousedown-Listener', () => {
+    it('disable() removes mousedown listener', () => {
         const marker = L.marker([51.5, -0.1]).addTo(map);
         store.addLayer(marker);
         mode.enable();
@@ -63,39 +63,30 @@ describe('DragMode', () => {
         expect(spy).toHaveBeenCalledWith('mousedown', expect.any(Function), expect.anything());
     });
 
-    it('Marker wird nach mousedown + mousemove verschoben und anvil:edited wird gefeuert', () => {
-        const marker = L.marker([0, 0]).addTo(map);
+    it('mousedown + mousemove updates layer position and fires anvil:edited on mouseup', () => {
+        const marker = L.marker([10, 10]).addTo(map);
         store.addLayer(marker);
         mode.enable();
 
-        const handler = vi.fn();
-        map.on(ANVIL_EVENTS.EDITED, handler);
+        const editHandler = vi.fn();
+        map.on(ANVIL_EVENTS.EDITED, editHandler);
 
-        fireMouseDown(marker, 0, 0);
-        fireMouseMove(map, 1, 1);
+        fireMouseDown(marker, 10, 10);
+        fireMouseMove(map, 11, 11); // Move by 1,1
         fireMouseUp(map);
 
-        expect(handler).toHaveBeenCalledOnce();
-        expect(handler.mock.calls[0][0]).toMatchObject({ layer: marker });
-
-        const newLatLng = marker.getLatLng();
-        expect(newLatLng.lat).toBeCloseTo(1);
-        expect(newLatLng.lng).toBeCloseTo(1);
+        expect(marker.getLatLng().lat).toBeCloseTo(11);
+        expect(marker.getLatLng().lng).toBeCloseTo(11);
+        expect(editHandler).toHaveBeenCalledOnce();
+        expect(editHandler.mock.calls[0][0]).toMatchObject({ layer: marker });
     });
 
-    it('Layer der nicht im Store ist, wird nicht gedraggt', () => {
-        const marker = L.marker([0, 0]).addTo(map);
-        // NICHT in den Store aufnehmen
+    it('newly added layer also gets listener if mode is enabled', () => {
         mode.enable();
+        const marker = L.marker([0, 0]).addTo(map);
+        const spy = vi.spyOn(marker, 'on');
 
-        const handler = vi.fn();
-        map.on(ANVIL_EVENTS.EDITED, handler);
-
-        fireMouseDown(marker, 0, 0);
-        fireMouseMove(map, 1, 1);
-        fireMouseUp(map);
-
-        expect(handler).not.toHaveBeenCalled();
+        store.addLayer(marker);
+        expect(spy).toHaveBeenCalledWith('mousedown', expect.any(Function), expect.anything());
     });
 });
-
