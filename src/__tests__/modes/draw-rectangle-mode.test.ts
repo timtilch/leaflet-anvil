@@ -29,16 +29,16 @@ describe('DrawRectangleMode', () => {
         map.remove();
     });
 
-    it('enable() setzt Cursor auf crosshair und deaktiviert Drag', () => {
+    it('enable() sets cursor to crosshair and disables drag', () => {
         expect(map.getContainer().style.cursor).toBe('crosshair');
     });
 
-    it('disable() setzt Cursor zurück', () => {
+    it('disable() resets cursor', () => {
         mode.disable();
         expect(map.getContainer().style.cursor).toBe('');
     });
 
-    it('mousedown → mousemove → mouseup erzeugt ein Rechteck und feuert anvil:created', () => {
+    it('mousedown → mousemove → mouseup creates a rectangle and fires anvil:created', () => {
         const handler = vi.fn();
         map.on(ANVIL_EVENTS.CREATED, handler);
 
@@ -50,13 +50,13 @@ describe('DrawRectangleMode', () => {
         expect(handler.mock.calls[0][0].layer).toBeInstanceOf(L.Rectangle);
     });
 
-    it('mouseup ohne vorherigen mousedown erzeugt kein Rechteck', () => {
+    it('no rectangle when not clicking (mousemove without mousedown)', () => {
         const handler = vi.fn();
         map.on(ANVIL_EVENTS.CREATED, handler);
 
+        fireMouseEvent(map, 'mousemove', 1, 1);
         fireMouseEvent(map, 'mouseup', 1, 1);
 
         expect(handler).not.toHaveBeenCalled();
     });
 });
-

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as L from 'leaflet';
-import { Anvil } from '../anvil';
+import { Anvil, AnvilMode } from '../anvil';
 import { ANVIL_EVENTS } from '../events';
 import { createMap, fireMapClick } from './helpers/leaflet-mock';
 
@@ -18,38 +18,38 @@ describe('Anvil', () => {
         map.remove();
     });
 
-    it('getLayerGroup() gibt eine FeatureGroup zurück', () => {
+    it('getLayerGroup() returns a FeatureGroup', () => {
         expect(anvil.getLayerGroup()).toBeInstanceOf(L.FeatureGroup);
     });
 
-    it('enable() aktiviert den angegebenen Modus', () => {
-        // Sollte keinen Fehler werfen
-        expect(() => anvil.enable('draw:marker')).not.toThrow();
+    it('enable() activates the specified mode', () => {
+        // Should not throw
+        expect(() => anvil.enable(AnvilMode.Marker)).not.toThrow();
     });
 
-    it('disable() deaktiviert den aktiven Modus', () => {
-        anvil.enable('draw:marker');
+    it('disable() deactivates the active mode', () => {
+        anvil.enable(AnvilMode.Marker);
         expect(() => anvil.disable()).not.toThrow();
     });
 
-    it('MODE_CHANGE-Event wird beim Moduswechsel gefeuert', () => {
+    it('MODE_CHANGE event is fired on mode change', () => {
         const handler = vi.fn();
         map.on(ANVIL_EVENTS.MODE_CHANGE, handler);
 
-        anvil.enable('draw:marker');
+        anvil.enable(AnvilMode.Marker);
 
         expect(handler).toHaveBeenCalledOnce();
-        expect(handler.mock.calls[0][0]).toMatchObject({ mode: 'draw:marker' });
+        expect(handler.mock.calls[0][0]).toMatchObject({ mode: AnvilMode.Marker });
     });
 
-    it('CREATED-Event → Layer wird automatisch zum Store hinzugefügt', () => {
+    it('CREATED event → Layer is automatically added to the store', () => {
         const marker = L.marker([51.5, -0.1]);
         map.fire(ANVIL_EVENTS.CREATED, { layer: marker });
 
         expect(anvil.getLayerGroup().hasLayer(marker)).toBe(true);
     });
 
-    it('DELETED-Event → Layer wird automatisch aus dem Store entfernt', () => {
+    it('DELETED event → Layer is automatically removed from the store', () => {
         const marker = L.marker([51.5, -0.1]);
         map.fire(ANVIL_EVENTS.CREATED, { layer: marker });
         map.fire(ANVIL_EVENTS.DELETED, { layer: marker });
@@ -57,21 +57,16 @@ describe('Anvil', () => {
         expect(anvil.getLayerGroup().hasLayer(marker)).toBe(false);
     });
 
-    it('alle unterstützten Modi können aktiviert werden ohne Fehler', () => {
-        const modes: Parameters<typeof anvil.enable>[0][] = [
-            'draw:polygon', 'draw:polyline', 'draw:marker', 'draw:rectangle',
-            'draw:square', 'draw:triangle', 'draw:circle', 'draw:freehand',
-            'cut', 'split', 'union', 'subtract', 'drag', 'scale', 'rotate',
-            'edit', 'delete',
-        ];
+    it('all supported modes can be activated without error', () => {
+        const modes: AnvilMode[] = Object.values(AnvilMode);
 
         for (const mode of modes) {
             expect(() => anvil.enable(mode)).not.toThrow();
         }
     });
 
-    it('Marker-Zeichnen integriert: Klick → anvil:created → im Store', () => {
-        anvil.enable('draw:marker');
+    it('Marker drawing integration: Click → anvil:created → in store', () => {
+        anvil.enable(AnvilMode.Marker);
         const handler = vi.fn();
         map.on(ANVIL_EVENTS.CREATED, handler);
 
@@ -82,4 +77,3 @@ describe('Anvil', () => {
         expect(anvil.getLayerGroup().hasLayer(layer)).toBe(true);
     });
 });
-

@@ -1,18 +1,18 @@
 # Leaflet Anvil 🛠️
 
-Ein minimalistisches, leistungsstarkes Toolkit zum Zeichnen und Editieren von Geometrien in [Leaflet](https://leafletjs.com/). Fokus liegt
-auf einer sauberen API, modernen TypeScript-Features und Unterstützung für komplexe geometrische Operationen wie Union und Subtract.
+A minimalist, powerful toolkit for drawing and editing geometries in [Leaflet](https://leafletjs.com/). Focused on a clean API, modern
+TypeScript features, and support for complex geometric operations like Union and Subtract.
 
 ## Features
 
-- **Zeichen-Modi**: Marker, Polylines, Polygone, Rechtecke, Quadrate, Dreiecke, Kreise und Freehand-Drawing.
-- **Editier-Tools**: Drag, Scale, Rotate und Vertex-Editing.
-- **Geometrische Operationen**:
-    - `Union`: Verschmelzen von zwei Polygonen.
-    - `Subtract`: Abziehen eines Polygons von einem anderen.
-    - `Cut` & `Split`: Zerschneiden von Linien oder Flächen.
-- **Smart Helpers**: Snapping (Einrasten) an vorhandenen Punkten und Magnetic-Modus.
-- **Event-basiert**: Einfache Integration durch ein konsistentes Event-System.
+- **Drawing Modes**: Marker, Polylines, Polygons, Rectangles, Squares, Triangles, Circles, and Freehand Drawing.
+- **Editing Tools**: Drag, Scale, Rotate, and Vertex editing.
+- **Geometric Operations**:
+    - `Union`: Merge two polygons into one.
+    - `Subtract`: Subtract one polygon from another.
+    - `Cut` & `Split`: Cut lines or split areas.
+- **Smart Helpers**: Snapping to existing points and Magnetic mode.
+- **Event-driven**: Easy integration through a consistent event system.
 
 ## Installation
 
@@ -20,89 +20,99 @@ auf einer sauberen API, modernen TypeScript-Features und Unterstützung für kom
 npm install leaflet-anvil
 ```
 
-*Hinweis: Leaflet ist eine Peer-Dependency und muss ebenfalls installiert sein.*
+*Note: Leaflet is a peer dependency and must be installed separately.*
 
-## Schnellstart
+## Quick Start
 
 ```typescript
 import L from 'leaflet';
-import { Anvil } from 'leaflet-anvil';
+import { Anvil, AnvilMode } from 'leaflet-anvil';
 
 const map = L.map('map').setView([51.505, -0.09], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-// Anvil initialisieren
+// Initialize Anvil
 const anvil = new Anvil(map, {
     snapping: true,
-    snapDistance: 15
+    snapDistance: 15,
+    magnetic: true,
+    preventSelfIntersection: true,
+    controlPosition: 'topleft',
+    modes: [
+        [AnvilMode.Polygon, AnvilMode.Marker],
+        [AnvilMode.Edit, AnvilMode.Delete]
+    ]
 });
 
-// Einen Modus aktivieren
-anvil.enable('draw:polygon');
+// Enable a mode
+anvil.enable(AnvilMode.Polygon);
 
-// Auf Events reagieren
+// React to events
 map.on('anvil:created', (e) => {
-    console.log('Neuer Layer erstellt:', e.layer);
+    console.log('New layer created:', e.layer);
 });
 ```
 
-## Verfügbare Modi
+## Available Modes
 
-Aktivierung über `anvil.enable(modeName)`:
+Activation via `anvil.enable(AnvilMode.Name)` or through the UI toolbar:
 
-| Modus            | Beschreibung                            |
-|:-----------------|:----------------------------------------|
-| `draw:marker`    | Setzt einen Marker                      |
-| `draw:polyline`  | Zeichnet eine Linie                     |
-| `draw:polygon`   | Zeichnet eine geschlossene Fläche       |
-| `draw:rectangle` | Zeichnet ein Rechteck                   |
-| `draw:circle`    | Zeichnet einen Kreis                    |
-| `draw:freehand`  | Freihandzeichnen (Klicken und Ziehen)   |
-| `edit`           | Bearbeiten von Eckpunkten (Vertices)    |
-| `drag`           | Verschieben von ganzen Layern           |
-| `rotate`         | Rotieren von Geometrien                 |
-| `scale`          | Skalieren von Geometrien                |
-| `union`          | Verschmelzen zweier Polygone            |
-| `subtract`       | Abziehen des zweiten vom ersten Polygon |
-| `delete`         | Layer per Klick entfernen               |
+|   Category    | Mode (AnvilMode) | Description                                              |
+|:-------------:|:-----------------|:---------------------------------------------------------|
+|  **Drawing**  | `Marker`         | Places a marker on the map.                              |
+|               | `Polyline`       | Creates line strings by clicking.                        |
+|               | `Polygon`        | Creates closed surfaces.                                 |
+|               | `Freehand`       | Draws lines/surfaces by holding the mouse button.        |
+|  **Shapes**   | `Rectangle`      | Creates a rectangle (2-point).                           |
+|               | `Square`         | Creates a square with a fixed aspect ratio.              |
+|               | `Triangle`       | Creates a triangle.                                      |
+|               | `Circle`         | Creates a circle with radius determination.              |
+| **Transform** | `Edit`           | Edit individual vertices.                                |
+|               | `Drag`           | Move entire geometries on the map.                       |
+|               | `Scale`          | Proportional resizing (scaling).                         |
+|               | `Rotate`         | Rotate geometries around their center.                   |
+| **Geometry**  | `Cut`            | Cut lines or surfaces at a point.                        |
+|               | `Split`          | Split a geometry by a drawn line.                        |
+|               | `Union`          | Merge the next two clicked polygons.                     |
+|               | `Subtract`       | The second clicked polygon is subtracted from the first. |
+|  **Actions**  | `Delete`         | Deletes the clicked layer immediately.                   |
 
-## API Referenz
+## Configuration (AnvilOptions)
 
-### Anvil Options
-
-| Option                    | Typ             | Standard | Beschreibung                        |
-|:--------------------------|:----------------|:---------|:------------------------------------|
-| `snapping`                | `boolean`       | `false`  | Aktiviert Snapping an Eckpunkten    |
-| `snapDistance`            | `number`        | `10`     | Distanz in Pixeln für Snapping      |
-| `preventSelfIntersection` | `boolean`       | `false`  | Verhindert Selbstüberschneidungen   |
-| `pathOptions`             | `L.PathOptions` | `{}`     | Standard-Styles für neue Geometrien |
+| Option                    | Type      | Default     | Description                                                                                                          |
+|:--------------------------|:----------|:------------|:---------------------------------------------------------------------------------------------------------------------|
+| `snapping`                | `boolean` | `false`     | **Snapping:** If `true`, new points automatically snap to existing vertices of other geometries.                     |
+| `snapDistance`            | `number`  | `10`        | **Snap Distance:** Determines the distance in pixels at which a point "jumps" to the nearest existing vertex.        |
+| `magnetic`                | `boolean` | `false`     | **Magnetism:** Enhances snapping behavior. Points are actively attracted once they enter the radius.                 |
+| `preventSelfIntersection` | `boolean` | `false`     | **Validation:** Prevents edges from self-intersecting in polygons and lines. Blocks invalid segments during drawing. |
+| `controlPosition`         | `string`  | `'topleft'` | Determines the position of the toolbar on the map (e.g., `'topright'`).                                              |
+| `modes`                   | `Array`   | `All`       | Defines which buttons appear in the toolbar. Supports nested arrays for button groups (blocks).                      |
 
 ### Events (`ANVIL_EVENTS`)
 
-Alle Events werden auf der Leaflet-Map gefeuert:
+All events are fired on the Leaflet map:
 
-- `anvil:created`: Wenn ein neuer Layer fertiggestellt wurde.
-- `anvil:edited`: Wenn ein Layer verändert wurde (drag/rotate/edit/scale).
-- `anvil:deleted`: Wenn ein Layer entfernt wurde.
-- `anvil:modechange`: Wenn der aktive Modus wechselt.
+- `anvil:created`: When a new layer has been finalized.
+- `anvil:edited`: When a layer has been modified (drag/rotate/edit/scale).
+- `anvil:deleted`: When a layer has been removed.
+- `anvil:modechange`: When the active mode changes.
 
-## Entwicklung
+## Development
 
 ```bash
-# Abhängigkeiten installieren
+# Install dependencies
 npm install
 
-# Entwicklungsserver (Vite)
+# Development server (Vite)
 npm run dev
 
-# Tests ausführen
+# Run tests
 npm test
 
-# Build erstellen
+# Create build
 npm run build
 ```
 
-## Lizenz
+## License
 
 MIT
-

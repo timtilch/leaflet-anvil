@@ -22,16 +22,16 @@ describe('DrawPolylineMode', () => {
         map.remove();
     });
 
-    it('enable() setzt Cursor auf crosshair', () => {
+    it('enable() sets cursor to crosshair', () => {
         expect(map.getContainer().style.cursor).toBe('crosshair');
     });
 
-    it('disable() setzt Cursor zurück', () => {
+    it('disable() resets cursor', () => {
         mode.disable();
         expect(map.getContainer().style.cursor).toBe('');
     });
 
-    it('Enter-Taste nach ≥2 Punkten finalisiert die Linie', () => {
+    it('Enter-key after ≥2 points finalizes the line', () => {
         const handler = vi.fn();
         map.on(ANVIL_EVENTS.CREATED, handler);
 
@@ -44,7 +44,7 @@ describe('DrawPolylineMode', () => {
         expect(handler.mock.calls[0][0].layer).toBeInstanceOf(L.Polyline);
     });
 
-    it('Enter-Taste mit nur 1 Punkt erzeugt keine Linie', () => {
+    it('Enter-key with only 1 point does not create a line', () => {
         const handler = vi.fn();
         map.on(ANVIL_EVENTS.CREATED, handler);
 
@@ -54,25 +54,30 @@ describe('DrawPolylineMode', () => {
         expect(handler).not.toHaveBeenCalled();
     });
 
-    it('Escape-Taste setzt Zeichnung zurück', () => {
-        const handler = vi.fn();
-        map.on(ANVIL_EVENTS.CREATED, handler);
-
+    it('Escape-key resets drawing state', () => {
         fireMapClick(map, 0, 0);
         fireMapClick(map, 1, 1);
+
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
 
+        const handler = vi.fn();
+        map.on(ANVIL_EVENTS.CREATED, handler);
+
+        // State is empty, Enter shouldn't produce anything
         window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
         expect(handler).not.toHaveBeenCalled();
     });
 
-    it('Doppelklick finalisiert die Linie', () => {
-        const handler = vi.fn();
-        map.on(ANVIL_EVENTS.CREATED, handler);
-
+    it('double click on last point finalizes the line', () => {
+        // Simulating second click on same coordinates
         fireMapClick(map, 0, 0);
         fireMapClick(map, 1, 1);
 
+        const handler = vi.fn();
+        map.on(ANVIL_EVENTS.CREATED, handler);
+
+        // Double click often fires a click first, then dblclick.
+        // Our mode listens to dblclick.
         (map as any).fire('dblclick', {
             latlng: L.latLng(1, 1),
             originalEvent: new MouseEvent('dblclick'),
@@ -81,4 +86,3 @@ describe('DrawPolylineMode', () => {
         expect(handler).toHaveBeenCalledOnce();
     });
 });
-
