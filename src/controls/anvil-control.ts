@@ -2,25 +2,45 @@ import * as L from 'leaflet';
 import { Anvil } from '../anvil';
 import { ANVIL_EVENTS } from '../events';
 
+const SVG_ATTRS = 'xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+
 const ICONS: { [key: string]: string } = {
-    'draw:marker': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
-    'draw:polyline': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 5-14 14"/><circle cx="19" cy="5" r="2"/><circle cx="5" cy="19" r="2"/></svg>',
-    'draw:polygon': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 10 7.5V22H2V9.5z"/></svg>',
-    'draw:rectangle': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/></svg>',
-    'draw:square': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/></svg>',
-    'draw:triangle': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/></svg>',
-    'draw:circle': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>',
-    'draw:freehand': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>',
-    'cut': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.8" y1="14.8" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>',
-    'split': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" stroke-dasharray="4 2"/><path d="M12 3v18"/></svg>',
-    'union': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4H14V10H20V20H10V14H4Z"/></svg>',
-    'subtract': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4H14V10H10V14H4Z"/><rect x="10" y="10" width="10" height="10" stroke-dasharray="2 2"/></svg>',
-    'drag': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18-3-3 3-3"/><path d="m15 12 3 3-3 3"/><path d="m12 9-3-3 3-3"/><path d="m9 6 3-3 3 3"/><path d="M6 15h12"/><path d="M12 3v18"/></svg>',
-    'scale': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M14 15H9v-5"/><path d="M16 3h5v5"/><path d="M21 3 9 15"/></svg>',
-    'rotate': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>',
-    'edit': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 8 12H4Z"/><circle cx="12" cy="2" r="2" fill="currentColor"/><circle cx="20" cy="14" r="2" fill="currentColor"/><circle cx="4" cy="14" r="2" fill="currentColor"/></svg>',
-    'delete': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>',
-    'off': '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></svg>',
+    // Marker: Map-Pin mit Punkt in der Mitte
+    'draw:marker': `<svg ${SVG_ATTRS}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
+    // Polyline: Kurvige Route mit Endpunkten
+    'draw:polyline': `<svg ${SVG_ATTRS}><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/><circle cx="6" cy="19" r="3"/></svg>`,
+    // Polygon: Klassische unregelmäßige 5-Eck-Form
+    'draw:polygon': `<svg ${SVG_ATTRS}><path d="m12 2 10 7-3 12H5l-3-12Z"/></svg>`,
+    // Rectangle: Horizontales Rechteck
+    'draw:rectangle': `<svg ${SVG_ATTRS}><rect width="20" height="12" x="2" y="6" rx="2"/></svg>`,
+    // Square: Quadratisches Rechteck (1:1)
+    'draw:square': `<svg ${SVG_ATTRS}><rect width="18" height="18" x="3" y="3" rx="2"/></svg>`,
+    // Triangle: Gleichschenkliges Dreieck
+    'draw:triangle': `<svg ${SVG_ATTRS}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/></svg>`,
+    // Circle: Klassischer Kreis
+    'draw:circle': `<svg ${SVG_ATTRS}><circle cx="12" cy="12" r="10"/></svg>`,
+    // Freehand: Geschwungene Signatur-Linie
+    'draw:freehand': `<svg ${SVG_ATTRS}><path d="m3 16 2 2 16-16"/><path d="M7 21h14"/><path d="M3 11c0 2 2 2 2 2z"/></svg>`,
+    // Cut: Offene Schere
+    'cut': `<svg ${SVG_ATTRS}><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88"/><path d="M14.47 14.48 20 20"/><path d="M8.12 8.12 12 12"/></svg>`,
+    // Split: Linie, die eine Form teilt
+    'split': `<svg ${SVG_ATTRS}><path d="M3 12h18"/><path d="M8 3v18"/><path d="M16 3v18"/><rect width="18" height="18" x="3" y="3" rx="2" stroke-dasharray="4 4" opacity="0.5"/></svg>`,
+    // Union: Zwei verschmolzene Rechtecke
+    'union': `<svg ${SVG_ATTRS}><path d="M8 4H4v4"/><path d="M4 12v4a2 2 0 0 0 2 2h4"/><path d="M14 18h4v-4"/><path d="M20 10V6a2 2 0 0 0-2-2h-4"/><path d="M14 10h-4v4" stroke-dasharray="2 2"/></svg>`,
+    // Subtract: Hauptform mit "ausgeschnittenem" Bereich (Minus-Metapher)
+    'subtract': `<svg ${SVG_ATTRS}><path d="M4 4h16v16H4z"/><path d="M10 10h10v10H10z" stroke-dasharray="2 2" opacity="0.7"/><path d="M15 6h-6"/></svg>`,
+    // Drag: Vier-Wege-Pfeil (Move-Metapher)
+    'drag': `<svg ${SVG_ATTRS}><path d="m5 9-3 3 3 3"/><path d="m9 5 3-3 3 3"/><path d="m15 19 3 3 3-3"/><path d="m19 9 3 3-3 3"/><path d="M2 12h20"/><path d="M12 2v20"/></svg>`,
+    // Scale: Diagonal-Pfeile (Maximize-Metapher)
+    'scale': `<svg ${SVG_ATTRS}><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3 14 10"/><path d="M3 21l7-7"/></svg>`,
+    // Rotate: Kreispfeil mit Ziel-Icon
+    'rotate': `<svg ${SVG_ATTRS}><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>`,
+    // Edit: Stift, der über einen Pfad zeichnet
+    'edit': `<svg ${SVG_ATTRS}><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
+    // Delete: Mülleimer mit Deckel und Schlitzen
+    'delete': `<svg ${SVG_ATTRS}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`,
+    // Off: Durchgestrichener Kreis (Power-Off/Disable Metapher)
+    'off': `<svg ${SVG_ATTRS}><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`,
 };
 
 export interface AnvilControlOptions extends L.ControlOptions {

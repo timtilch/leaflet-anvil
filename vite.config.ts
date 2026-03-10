@@ -1,6 +1,16 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+    test: {
+        environment: 'jsdom',
+        globals: true,
+        coverage: {
+            provider: 'v8',
+            include: ['src/**/*.ts'],
+            exclude: ['src/index.ts'],
+        },
+    },
     build: {
         lib: {
             entry: 'src/index.ts',
