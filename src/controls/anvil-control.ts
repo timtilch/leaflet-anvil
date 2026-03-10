@@ -5,7 +5,7 @@ import { ANVIL_EVENTS } from '../events';
 
 const SVG_ATTRS = 'xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 
-const ICONS: { [key in AnvilMode | 'off']: string } = {
+const ICONS: { [key in AnvilMode]: string } = {
     // Marker: Map-Pin mit Punkt in der Mitte
     [AnvilMode.Marker]: `<svg ${SVG_ATTRS}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
     // Polyline: Kurvige Route mit Endpunkten
@@ -41,7 +41,7 @@ const ICONS: { [key in AnvilMode | 'off']: string } = {
     // Delete: Mülleimer mit Deckel und Schlitzen
     [AnvilMode.Delete]: `<svg ${SVG_ATTRS}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`,
     // Off: Durchgestrichener Kreis (Power-Off/Disable Metapher)
-    'off': `<svg ${SVG_ATTRS}><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`,
+    [AnvilMode.Off]: `<svg ${SVG_ATTRS}><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`,
 };
 
 export interface AnvilControlOptions extends L.ControlOptions {
@@ -100,7 +100,7 @@ export class AnvilControl extends L.Control {
 
             block.forEach(modeId => {
                 const config = allModeConfigs.find(c => c.id === modeId);
-                if (!config && modeId !== 'off') return;
+                if (!config && modeId !== AnvilMode.Off) return;
 
                 const id = modeId;
                 const title = config ? config.title : 'Turn Off';
@@ -120,10 +120,10 @@ export class AnvilControl extends L.Control {
                 L.DomEvent.disableClickPropagation(btn);
                 L.DomEvent.on(btn, 'click', (e) => {
                     L.DomEvent.preventDefault(e);
-                    if (id === 'off') {
+                    if (id === AnvilMode.Off) {
                         this._anvil.disable();
                     } else {
-                        this._anvil.enable(id as any);
+                        this._anvil.enable(id);
                     }
                 });
 
@@ -131,9 +131,9 @@ export class AnvilControl extends L.Control {
             });
 
             // Add "off" button only to the last block if not explicitly provided
-            if (index === blocks.length - 1 && !this._btns['off']) {
+            if (index === blocks.length - 1 && !this._btns[AnvilMode.Off]) {
                 const offBtn = L.DomUtil.create('a', 'anvil-control-btn', group);
-                offBtn.innerHTML = ICONS['off'];
+                offBtn.innerHTML = ICONS[AnvilMode.Off];
                 offBtn.href = '#';
                 offBtn.title = 'Turn Off';
                 offBtn.style.display = 'flex';
@@ -149,13 +149,13 @@ export class AnvilControl extends L.Control {
                     L.DomEvent.preventDefault(e);
                     this._anvil.disable();
                 });
-                this._btns['off'] = offBtn;
+                this._btns[AnvilMode.Off] = offBtn;
             }
         });
 
         const updateFn = (m: string | null) => {
             for (const id in this._btns) {
-                const active = (id === m) || (id === 'off' && !m);
+                const active = (id === m) || (id === AnvilMode.Off && !m);
                 this._btns[id].style.backgroundColor = active ? '#eee' : '#fff';
             }
         };
