@@ -7,7 +7,11 @@ export * from './events';
 export * from './controls/anvil-control';
 
 // Attach Factories for classic Leaflet usage
-(L as any).anvil = (map: L.Map, options?: any) => new Anvil(map, options);
-if ((L as any).control) {
-    (L as any).control.anvil = (anvil: Anvil, options?: any) => anvilControl(anvil, options);
+const leaflet = L as any;
+leaflet.Anvil = Anvil;
+leaflet.anvil = (map: L.Map, options?: any) => new Anvil(map, options);
+
+if (leaflet.Control) {
+    leaflet.Control.Anvil = (anvil: Anvil, options?: any) => anvilControl(anvil, options);
+    leaflet.control.anvil = (anvil: Anvil, options?: any) => anvilControl(anvil, options);
 }

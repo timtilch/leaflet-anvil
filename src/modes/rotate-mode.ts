@@ -9,7 +9,7 @@ export class RotateMode implements Mode {
     private initialLatLngs: any = null;
     private startAngle: number = 0;
 
-    constructor(private map: L.Map, private store: LayerStore) {
+    constructor(private map: L.Map, private store: LayerStore, private options?: any) {
     }
 
     enable(): void {

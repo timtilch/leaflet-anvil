@@ -10,7 +10,7 @@ export class ScaleMode implements Mode {
     private initialRadius: number = 0;
     private initialDistance: number = 0;
 
-    constructor(private map: L.Map, private store: LayerStore) {
+    constructor(private map: L.Map, private store: LayerStore, private options?: any) {
     }
 
     enable(): void {
