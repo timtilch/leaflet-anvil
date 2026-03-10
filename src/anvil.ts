@@ -61,8 +61,8 @@ export class Anvil {
         this.modeManager.addMode('union', new UnionMode(map, this.store, this.options));
         this.modeManager.addMode('subtract', new SubtractMode(map, this.store, this.options));
         this.modeManager.addMode('drag', new DragMode(map, this.store, this.options));
-        this.modeManager.addMode('scale', new ScaleMode(map, this.store));
-        this.modeManager.addMode('rotate', new RotateMode(map, this.store));
+        this.modeManager.addMode('scale', new ScaleMode(map, this.store, this.options));
+        this.modeManager.addMode('rotate', new RotateMode(map, this.store, this.options));
         this.modeManager.addMode('edit', new EditMode(this.map, this.store, this.options));
         this.modeManager.addMode('delete', new DeleteMode(map, this.store));
 

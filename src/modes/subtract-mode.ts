@@ -1,6 +1,6 @@
 import * as L from 'leaflet';
 import * as turf from '@turf/turf';
-import { Mode } from '../anvil';
+import { AnvilOptions, Mode } from '../anvil';
 import { LayerStore } from '../layers/layer-store';
 import { ANVIL_EVENTS } from '../events';
 
@@ -10,6 +10,7 @@ export class SubtractMode implements Mode {
     constructor(
         private map: L.Map,
         private store: LayerStore,
+        private options: AnvilOptions = {},
     ) {
     }
 
