@@ -35,6 +35,10 @@
     "map",
     "geometry"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/timtilch/leaflet-anvil"
+  },
   "license": "MIT",
   "dependencies": {
     "@turf/turf": "^7.3.4"
