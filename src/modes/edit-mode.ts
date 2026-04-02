@@ -5,15 +5,31 @@ import { LayerStore } from '../layers/layer-store';
 import { AnvilMode } from '../types';
 import { getModeHandleOptions, getModeSelectionPathOptions } from '../utils/mode-styles';
 import { getSnapLatLng } from '../utils/snapping';
-import { isSelfIntersecting } from '../utils/geometry';
+import { segmentsIntersect } from '../utils/geometry';
+
+type VertexRef = { layer: L.Path; path: number[] };
+type VertexGroup = { latlng: L.LatLng; refs: VertexRef[]; marker: L.CircleMarker | null };
+type SegmentRef = { layer: L.Path; path: number[] };
+type SegmentGroup = { p1: L.LatLng; p2: L.LatLng; refs: SegmentRef[] };
+type HandleMeta =
+    | { kind: 'vertex'; group: VertexGroup }
+    | { kind: 'circle'; circle: L.Circle };
+type DragState =
+    | { kind: 'vertex'; group: VertexGroup; marker: L.CircleMarker }
+    | { kind: 'ghost'; segment: SegmentGroup; marker: L.CircleMarker }
+    | { kind: 'circle'; circle: L.Circle; marker: L.CircleMarker };
 
 export class EditMode implements Mode {
     private activeLayers = new Set<L.Layer>();
-    private markers: L.Marker[] = [];
-    private ghostMarker: L.Marker | null = null;
-    private segments: { p1: L.LatLng, p2: L.LatLng, refs: { layer: L.Path, path: number[] }[] }[] = [];
-    private _isDragging = false;
+    private markers: L.CircleMarker[] = [];
+    private ghostMarker: L.CircleMarker | null = null;
+    private segments: SegmentGroup[] = [];
+    private isDragging = false;
+    private dragState: DragState | null = null;
+    private suppressNextClick = false;
     private originalLayerStyles = new Map<L.Path, L.PathOptions>();
+    private handleRenderer?: L.Renderer;
+    private readonly handlePaneName = 'anvil-edit-handles';
 
     constructor(
         private map: L.Map,
@@ -23,40 +39,62 @@ export class EditMode implements Mode {
     }
 
     enable(): void {
+        this.ensureHandlePane();
+        this.handleRenderer = this.createHandleRenderer();
+
         this.store.getGroup().eachLayer(layer => {
             if (layer instanceof L.Path || layer instanceof L.Marker) {
                 layer.on('click', this.onLayerClick, this);
-                layer.on('mousemove', this.onMouseMove, this); // Also listen on layers
+                layer.on('mousemove', this.onMapMouseMove, this);
                 (layer.getElement() as HTMLElement)?.style.setProperty('cursor', 'pointer');
             }
         });
+
         this.map.on('click', this.onMapClick, this);
-        this.map.on('mousemove', this.onMouseMove, this);
+        this.map.on('mousedown', this.onMapMouseDown, this);
+        this.map.on('mousemove', this.onMapMouseMove, this);
+        this.map.on('mouseup', this.onMapMouseUp, this);
+        this.map.on('contextmenu', this.onMapContextMenu, this);
+        L.DomEvent.on(window as any, 'mousemove', this.onWindowMouseMove as any, this);
+        L.DomEvent.on(window as any, 'mouseup', this.onWindowMouseUp as any, this);
     }
 
     disable(): void {
+        this.finishDrag(false);
+
         this.store.getGroup().eachLayer(layer => {
             if (layer instanceof L.Path || layer instanceof L.Marker) {
                 layer.off('click', this.onLayerClick, this);
-                layer.off('mousemove', this.onMouseMove, this);
+                layer.off('mousemove', this.onMapMouseMove, this);
                 (layer.getElement() as HTMLElement)?.style.setProperty('cursor', '');
             }
         });
+
         this.map.off('click', this.onMapClick, this);
-        this.map.off('mousemove', this.onMouseMove, this);
+        this.map.off('mousedown', this.onMapMouseDown, this);
+        this.map.off('mousemove', this.onMapMouseMove, this);
+        this.map.off('mouseup', this.onMapMouseUp, this);
+        this.map.off('contextmenu', this.onMapContextMenu, this);
+        L.DomEvent.off(window as any, 'mousemove', this.onWindowMouseMove as any, this);
+        L.DomEvent.off(window as any, 'mouseup', this.onWindowMouseUp as any, this);
+
         this.restoreAllPathStyles();
         this.clearMarkers();
         this.activeLayers.clear();
     }
 
     private onLayerClick(e: L.LeafletMouseEvent): void {
-        L.DomEvent.stopPropagation(e);
-        const layer = e.target as L.Layer;
+        if (this.suppressNextClick) {
+            this.stopLeafletEvent(e);
+            return;
+        }
 
-        const isMultiSelect = e.originalEvent.shiftKey;
+        this.stopLeafletEvent(e);
+        this.blurActiveElement();
+        const layer = e.target as L.Layer;
+        const isMultiSelect = e.originalEvent.shiftKey || this.options.magnetic;
 
         if (!isMultiSelect) {
-            // Clear current selection if clicking a new layer and not multi-selecting
             if (this.activeLayers.has(layer) && this.activeLayers.size === 1) return;
 
             this.restoreAllPathStyles();
@@ -73,175 +111,363 @@ export class EditMode implements Mode {
             this.clearMarkers();
         }
 
-        // Highlight selection
-        this.activeLayers.forEach(l => {
-            if (l instanceof L.Path) this.applySelectionStyle(l);
+        this.activeLayers.forEach(activeLayer => {
+            if (activeLayer instanceof L.Path) this.applySelectionStyle(activeLayer);
         });
 
         this.createMarkers();
     }
 
     private onMapClick(): void {
+        if (this.suppressNextClick) {
+            this.suppressNextClick = false;
+            return;
+        }
+
+        if (this.isDragging) return;
+
         this.restoreAllPathStyles();
         this.clearMarkers();
         this.activeLayers.clear();
     }
 
+    private onMapMouseDown(e: L.LeafletMouseEvent): void {
+        if (this.activeLayers.size === 0 || this.dragState) return;
+
+        const hit = this.hitTestHandle(e.latlng);
+        if (!hit) return;
+
+        this.stopLeafletEvent(e);
+        this.blurActiveElement();
+        this.suppressNextClick = true;
+
+        if (hit.kind === 'ghost') {
+            this.startGhostDrag(hit.segment, hit.marker);
+            return;
+        }
+
+        if (hit.kind === 'circle') {
+            this.startCircleDrag(hit.circle, hit.marker);
+            return;
+        }
+
+        this.startVertexDrag(hit.group, hit.marker);
+    }
+
+    private onMapMouseMove(e: L.LeafletMouseEvent): void {
+        if (this.dragState) {
+            this.updateDrag(e.latlng);
+            return;
+        }
+
+        if (this.activeLayers.size === 0 || this.segments.length === 0) {
+            this.removeGhost();
+            return;
+        }
+
+        const mousePoint = this.map.latLngToContainerPoint(e.latlng);
+        const isOverVertex = this.markers.some(marker => {
+            const markerPoint = this.map.latLngToContainerPoint(marker.getLatLng());
+            return markerPoint.distanceTo(mousePoint) < 15;
+        });
+
+        if (isOverVertex) {
+            this.removeGhost();
+            return;
+        }
+
+        let closestSegment: SegmentGroup | null = null;
+        let minDistance = 24;
+        let bestLatLng: L.LatLng | null = null;
+
+        this.segments.forEach(segment => {
+            const a = this.map.latLngToContainerPoint(segment.p1);
+            const b = this.map.latLngToContainerPoint(segment.p2);
+            const projection = L.LineUtil.closestPointOnSegment(mousePoint, a, b);
+            const distance = mousePoint.distanceTo(projection);
+
+            if (distance < minDistance) {
+                minDistance = distance;
+                closestSegment = segment;
+                bestLatLng = this.map.containerPointToLatLng(projection);
+            }
+        });
+
+        if (closestSegment && bestLatLng) {
+            this.showGhost(bestLatLng, closestSegment);
+        } else {
+            this.removeGhost();
+        }
+    }
+
+    private onMapMouseUp(): void {
+        this.finishDrag();
+    }
+
+    private onMapContextMenu(e: L.LeafletMouseEvent): void {
+        const hit = this.hitTestHandle(e.latlng);
+        if (!hit || hit.kind === 'ghost') return;
+
+        this.stopLeafletEvent(e);
+        this.blurActiveElement();
+        this.suppressNextClick = true;
+
+        if (hit.kind === 'circle') {
+            this.activeLayers.delete(hit.circle);
+            this.originalLayerStyles.delete(hit.circle);
+            this.map.removeLayer(hit.circle);
+            this.map.fire(ANVIL_EVENTS.DELETED, { layer: hit.circle });
+            this.refreshMarkers();
+            return;
+        }
+
+        this.deleteVertex(hit.group);
+    }
+
+    private onWindowMouseMove(e: MouseEvent): void {
+        if (!this.dragState) return;
+
+        const rect = this.map.getContainer().getBoundingClientRect();
+        const point = L.point(e.clientX - rect.left, e.clientY - rect.top);
+        this.updateDrag(this.map.containerPointToLatLng(point));
+    }
+
+    private onWindowMouseUp(): void {
+        this.finishDrag();
+    }
+
     private createMarkers(): void {
-        this.clearMarkers(); // Ensure we start fresh
+        this.clearMarkers();
         if (this.activeLayers.size === 0) return;
 
-        const vertexMap = new Map<string, { latlng: L.LatLng; refs: { layer: L.Path, path: number[] }[]; marker: L.Marker | null }>();
+        const vertexMap = new Map<string, VertexGroup>();
+        const segmentMap = new Map<string, SegmentGroup>();
         this.segments = [];
-        const segmentMap = new Map<string, { p1: L.LatLng, p2: L.LatLng, refs: { layer: L.Path, path: number[] }[] }>();
 
-        const getPosKey = (ll: L.LatLng) => `${ll.lat.toFixed(6)},${ll.lng.toFixed(6)}`;
+        const getPosKey = (latlng: L.LatLng) => `${latlng.lat.toFixed(6)},${latlng.lng.toFixed(6)}`;
 
         this.activeLayers.forEach(layer => {
             if (layer instanceof L.Marker) {
-                this.handleMarkerEdit(layer);
-            } else if (layer instanceof L.Circle) {
-                this.handleCircleEdit(layer);
-            } else if (layer instanceof L.Polyline) { // This covers Polyline and Polygon
-                const latlngs = (layer as L.Polyline).getLatLngs();
-
-                const traverse = (arr: any, currentPath: number[]) => {
-                    if (!arr) return;
-                    // Check if we have an array of LatLngs directly
-                    if (Array.isArray(arr) && arr.length > 0 && (arr[0] instanceof L.LatLng || (typeof arr[0].lat === 'number'))) {
-                        const isPolygon = (layer as any) instanceof L.Polygon;
-
-                        // Detect if the ring is explicitly closed (last point == first point)
-                        let ringLen = arr.length;
-                        if (isPolygon && ringLen > 1) {
-                            if (getPosKey(arr[0]) === getPosKey(arr[ringLen - 1])) {
-                                ringLen--; // Ignore last point for segment logic to avoid zero-length errors
-                            }
-                        }
-
-                        arr.forEach((ll: L.LatLng, i: number) => {
-                            if (i >= ringLen) return; // Skip redundant closing point
-
-                            // Vertex
-                            const key = getPosKey(ll);
-                            if (!vertexMap.has(key)) vertexMap.set(key, { latlng: ll, refs: [], marker: null });
-                            vertexMap.get(key)!.refs.push({ layer: layer as L.Polyline, path: [...currentPath, i] });
-
-                            // Segment logic
-                            if (i < ringLen - 1 || isPolygon) {
-                                const nextIndex = (i + 1) % ringLen;
-                                const nextLL = arr[nextIndex];
-
-                                if (getPosKey(ll) === getPosKey(nextLL)) return; // Skip zero-length
-
-                                const k1 = getPosKey(ll);
-                                const k2 = getPosKey(nextLL);
-                                const midKey = [k1, k2].sort().join('|');
-
-                                if (!segmentMap.has(midKey)) {
-                                    segmentMap.set(midKey, { p1: ll, p2: nextLL, refs: [] });
-                                }
-                                segmentMap.get(midKey)!.refs.push({ layer: layer as L.Polyline, path: [...currentPath, i] });
-                            }
-                        });
-                    } else if (Array.isArray(arr)) {
-                        arr.forEach((item, i) => traverse(item, [...currentPath, i]));
-                    }
-                };
-                traverse(latlngs, []);
+                this.enableMarkerEditing(layer);
+                return;
             }
+
+            if (layer instanceof L.Circle) {
+                this.createCircleHandle(layer);
+                return;
+            }
+
+            if (!(layer instanceof L.Polyline)) return;
+
+            const traverse = (arr: any, currentPath: number[]) => {
+                if (!arr) return;
+
+                if (Array.isArray(arr) && arr.length > 0 && (arr[0] instanceof L.LatLng || typeof arr[0].lat === 'number')) {
+                    const isPolygon = layer instanceof L.Polygon;
+                    let ringLen = arr.length;
+
+                    if (isPolygon && ringLen > 1 && getPosKey(arr[0]) === getPosKey(arr[ringLen - 1])) {
+                        ringLen--;
+                    }
+
+                    arr.forEach((latlng: L.LatLng, index: number) => {
+                        if (index >= ringLen) return;
+
+                        const key = getPosKey(latlng);
+                        if (!vertexMap.has(key)) {
+                            vertexMap.set(key, { latlng, refs: [], marker: null });
+                        }
+                        vertexMap.get(key)!.refs.push({ layer, path: [...currentPath, index] });
+
+                        if (index < ringLen - 1 || isPolygon) {
+                            const nextIndex = (index + 1) % ringLen;
+                            const nextLatLng = arr[nextIndex];
+                            if (getPosKey(latlng) === getPosKey(nextLatLng)) return;
+
+                            const segmentKey = [getPosKey(latlng), getPosKey(nextLatLng)].sort().join('|');
+                            if (!segmentMap.has(segmentKey)) {
+                                segmentMap.set(segmentKey, { p1: latlng, p2: nextLatLng, refs: [] });
+                            }
+                            segmentMap.get(segmentKey)!.refs.push({ layer, path: [...currentPath, index] });
+                        }
+                    });
+                    return;
+                }
+
+                if (Array.isArray(arr)) {
+                    arr.forEach((item, index) => traverse(item, [...currentPath, index]));
+                }
+            };
+
+            traverse(layer.getLatLngs(), []);
         });
 
         this.segments = Array.from(segmentMap.values());
 
-        // Create Vertex Markers
-        vertexMap.forEach((group) => {
-            const marker = this.createEditMarker(group.latlng);
+        vertexMap.forEach(group => {
+            const marker = this.createHandle(group.latlng);
             group.marker = marker;
+            this.setHandleMeta(marker, { kind: 'vertex', group });
             this.markers.push(marker);
-
-            marker.on('dragstart', () => {
-                this._isDragging = true;
-            });
-            marker.on('drag', (e: L.LeafletEvent) => {
-                const mouseEvent = e as L.LeafletMouseEvent;
-                const skipLayersArray = Array.from(this.activeLayers);
-                const additionalPoints = [
-                    ...this.markers.filter(m => m !== marker).map(m => m.getLatLng()),
-                    ...Array.from(this.activeLayers).filter(l => l instanceof L.Marker).map(l => (l as L.Marker).getLatLng()),
-                ];
-                const snapped = getSnapLatLng(this.map, mouseEvent.latlng, this.store, this.options, additionalPoints, skipLayersArray);
-
-                if (this.options.preventSelfIntersection) {
-                    let wouldIntersect = false;
-
-                    // Temporary update to check for intersections
-                    group.refs.forEach(ref => {
-                        const fullStructure = (ref.layer as L.Polyline).getLatLngs() as any;
-                        let target: any = fullStructure;
-                        for (let i = 0; i < ref.path.length - 1; i++) {
-                            target = target[ref.path[i]];
-                        }
-                        const oldPos = target[ref.path[ref.path.length - 1]];
-                        target[ref.path[ref.path.length - 1]] = snapped;
-
-                        if (isSelfIntersecting(this.map, fullStructure, ref.layer instanceof L.Polygon)) {
-                            wouldIntersect = true;
-                        }
-
-                        // Revert
-                        target[ref.path[ref.path.length - 1]] = oldPos;
-                    });
-
-                    if (wouldIntersect) return;
-                }
-
-                marker.setLatLng(snapped);
-                group.latlng = snapped;
-
-                group.refs.forEach(ref => {
-                    const fullStructure = (ref.layer as L.Polyline).getLatLngs();
-                    let target: any = fullStructure;
-                    for (let i = 0; i < ref.path.length - 1; i++) {
-                        target = target[ref.path[i]];
-                    }
-                    target[ref.path[ref.path.length - 1]] = snapped;
-                    (ref.layer as L.Polyline).setLatLngs(fullStructure);
-                    ref.layer.redraw();
-                });
-            });
-
-            marker.on('dragend', () => {
-                this._isDragging = false;
-                this.activeLayers.forEach(l => this.map.fire(ANVIL_EVENTS.EDITED, { layer: l }));
-                this.refreshMarkers();
-            });
-
-            marker.on('contextmenu', (e: L.LeafletEvent) => {
-                const mouseEvent = e as L.LeafletMouseEvent;
-                L.DomEvent.stopPropagation(mouseEvent);
-                this.deleteVertex(group);
-            });
         });
     }
 
-    private deleteVertex(group: { latlng: L.LatLng; refs: { layer: L.Path, path: number[] }[]; marker: L.Marker | null }): void {
+    private startVertexDrag(group: VertexGroup, marker: L.CircleMarker): void {
+        this.removeGhost();
+        this.dragState = { kind: 'vertex', group, marker };
+        this.isDragging = true;
+        this.map.dragging?.disable();
+    }
+
+    private startGhostDrag(segment: SegmentGroup, marker: L.CircleMarker): void {
+        const startLatLng = marker.getLatLng();
+        segment.refs.forEach(ref => {
+            const fullStructure = (ref.layer as L.Polyline).getLatLngs() as any;
+            let target: any = fullStructure;
+            for (let i = 0; i < ref.path.length - 1; i++) {
+                target = target[ref.path[i]];
+            }
+            target.splice(ref.path[ref.path.length - 1] + 1, 0, startLatLng);
+            (ref.layer as L.Polyline).setLatLngs(fullStructure);
+        });
+
+        this.dragState = { kind: 'ghost', segment, marker };
+        this.isDragging = true;
+        this.map.dragging?.disable();
+    }
+
+    private startCircleDrag(circle: L.Circle, marker: L.CircleMarker): void {
+        this.removeGhost();
+        this.dragState = { kind: 'circle', circle, marker };
+        this.isDragging = true;
+        this.map.dragging?.disable();
+    }
+
+    private updateDrag(latlng: L.LatLng): void {
+        if (!this.dragState) return;
+
+        if (this.dragState.kind === 'vertex') {
+            this.updateVertexDrag(this.dragState.group, this.dragState.marker, latlng);
+            return;
+        }
+
+        if (this.dragState.kind === 'ghost') {
+            this.updateGhostDrag(this.dragState.segment, this.dragState.marker, latlng);
+            return;
+        }
+
+        this.updateCircleDrag(this.dragState.circle, this.dragState.marker, latlng);
+    }
+
+    private updateVertexDrag(group: VertexGroup, marker: L.CircleMarker, latlng: L.LatLng): void {
+        const skipLayersArray = Array.from(this.activeLayers);
+        const snapped = getSnapLatLng(this.map, latlng, this.store, this.options, [], skipLayersArray);
+
+        if (this.options.preventSelfIntersection) {
+            let wouldIntersect = false;
+
+            group.refs.forEach(ref => {
+                if (this.wouldVertexMoveSelfIntersect(ref, snapped)) {
+                    wouldIntersect = true;
+                }
+            });
+
+            if (wouldIntersect) return;
+        }
+
+        marker.setLatLng(snapped);
+        group.latlng = snapped;
+
+        group.refs.forEach(ref => {
+            const fullStructure = (ref.layer as L.Polyline).getLatLngs();
+            let target: any = fullStructure;
+            for (let i = 0; i < ref.path.length - 1; i++) {
+                target = target[ref.path[i]];
+            }
+            target[ref.path[ref.path.length - 1]] = snapped;
+            (ref.layer as L.Polyline).setLatLngs(fullStructure);
+            ref.layer.redraw();
+        });
+    }
+
+    private updateGhostDrag(segment: SegmentGroup, marker: L.CircleMarker, latlng: L.LatLng): void {
+        const skipLayersArray = Array.from(this.activeLayers);
+        const snapped = getSnapLatLng(this.map, latlng, this.store, this.options, [], skipLayersArray);
+
+        if (this.options.preventSelfIntersection) {
+            let wouldIntersect = false;
+
+            segment.refs.forEach(ref => {
+                if (this.wouldInsertedVertexSelfIntersect(ref, snapped)) {
+                    wouldIntersect = true;
+                }
+            });
+
+            if (wouldIntersect) return;
+        }
+
+        marker.setLatLng(snapped);
+
+        segment.refs.forEach(ref => {
+            const fullStructure = (ref.layer as L.Polyline).getLatLngs() as any;
+            let target: any = fullStructure;
+            for (let i = 0; i < ref.path.length - 1; i++) {
+                target = target[ref.path[i]];
+            }
+            target[ref.path[ref.path.length - 1] + 1] = snapped;
+            (ref.layer as L.Polyline).setLatLngs(fullStructure);
+            ref.layer.redraw();
+        });
+    }
+
+    private updateCircleDrag(circle: L.Circle, marker: L.CircleMarker, latlng: L.LatLng): void {
+        const additionalPoints = this.markers.filter(candidate => candidate !== marker).map(candidate => candidate.getLatLng());
+        const snapped = getSnapLatLng(this.map, latlng, this.store, this.options, additionalPoints, circle);
+
+        marker.setLatLng(snapped);
+        circle.setLatLng(snapped);
+    }
+
+    private finishDrag(emitEdited = true): void {
+        if (!this.dragState) return;
+
+        const editedLayers = new Set<L.Layer>();
+
+        if (this.dragState.kind === 'vertex') {
+            this.dragState.group.refs.forEach(ref => editedLayers.add(ref.layer));
+        } else if (this.dragState.kind === 'ghost') {
+            this.dragState.segment.refs.forEach(ref => editedLayers.add(ref.layer));
+        } else {
+            editedLayers.add(this.dragState.circle);
+        }
+
+        this.dragState = null;
+        this.isDragging = false;
+        this.suppressNextClick = true;
+        if (this.map.dragging && !this.map.dragging.enabled()) {
+            this.map.dragging.enable();
+        }
+
+        if (emitEdited) {
+            editedLayers.forEach(layer => this.map.fire(ANVIL_EVENTS.EDITED, { layer }));
+        }
+
+        this.refreshMarkers();
+    }
+
+    private deleteVertex(group: VertexGroup): void {
         const layersToDelete = new Set<L.Layer>();
 
         group.refs.forEach(ref => {
             const fullStructure = (ref.layer as L.Polyline).getLatLngs() as any;
             let target: any = fullStructure;
 
-            // Navigate to the correct nested array if necessary (for MultiPolyline/MultiPolygon)
             for (let i = 0; i < ref.path.length - 1; i++) {
                 target = target[ref.path[i]];
             }
 
             const index = ref.path[ref.path.length - 1];
-
-            // Determine minimum vertices to keep the shape valid
-            const isPolygon = ref.layer instanceof L.Polygon;
-            const minVertices = isPolygon ? 3 : 2;
+            const minVertices = ref.layer instanceof L.Polygon ? 3 : 2;
 
             if (target.length > minVertices) {
                 target.splice(index, 1);
@@ -255,191 +481,50 @@ export class EditMode implements Mode {
 
         layersToDelete.forEach(layer => {
             this.activeLayers.delete(layer);
-            if (layer instanceof L.Path) {
-                this.originalLayerStyles.delete(layer);
-            }
+            if (layer instanceof L.Path) this.originalLayerStyles.delete(layer);
             this.map.removeLayer(layer);
-            this.map.fire(ANVIL_EVENTS.DELETED, { layer: layer });
+            this.map.fire(ANVIL_EVENTS.DELETED, { layer });
         });
 
         this.refreshMarkers();
     }
 
-    private onMouseMove(e: L.LeafletEvent): void {
-        const mouseEvent = e as L.LeafletMouseEvent;
-        if (this.activeLayers.size === 0 || this.segments.length === 0 || this._isDragging) {
-            if (!this._isDragging) this.removeGhost();
-            return;
-        }
-
-        const mousePoint = this.map.latLngToContainerPoint(mouseEvent.latlng);
-
-        // FIX: Check if we are over an existing vertex marker to avoid blocking corner dragging
-        const isOverVertex = this.markers.some(m => {
-            const p = this.map.latLngToContainerPoint(m.getLatLng());
-            return p.distanceTo(mousePoint) < 15;
-        });
-
-        if (isOverVertex) {
-            this.removeGhost();
-            return;
-        }
-
-        let closestSeg: typeof this.segments[0] | null = null;
-        let minDistance = 24;
-        let bestLatLng: L.LatLng | null = null;
-
-        this.segments.forEach(seg => {
-            const A = this.map.latLngToContainerPoint(seg.p1);
-            const B = this.map.latLngToContainerPoint(seg.p2);
-            const proj = L.LineUtil.closestPointOnSegment(mousePoint, A, B);
-            const dist = mousePoint.distanceTo(proj);
-
-            if (dist < minDistance) {
-                minDistance = dist;
-                closestSeg = seg;
-                bestLatLng = this.map.containerPointToLatLng(proj);
-            }
-        });
-
-        if (closestSeg && bestLatLng) {
-            this.showGhost(bestLatLng, closestSeg);
-        } else {
-            this.removeGhost();
-        }
-    }
-
-    private createEditMarker(latlng: L.LatLng): L.Marker {
-        const visuals = this.getEditHandleVisuals();
-        return L.marker(latlng, {
-            draggable: true,
-            zIndexOffset: 2000,
-            icon: L.divIcon({
-                className: 'anvil-edit-marker',
-                html: this.createHandleHtml(visuals.size, visuals.fillColor, visuals.borderColor, visuals.borderWidth),
-                iconSize: [visuals.size, visuals.size],
-                iconAnchor: [visuals.size / 2, visuals.size / 2],
-            }),
-        }).addTo(this.map);
-    }
-
-    private showGhost(latlng: L.LatLng, segment: typeof this.segments[0]): void {
+    private showGhost(latlng: L.LatLng, segment: SegmentGroup): void {
         if (this.ghostMarker) {
-            if (!this._isDragging) {
-                this.ghostMarker.setLatLng(latlng);
-                // Update segment ref so dragging uses the correct segment even if marker is reused
-                (this.ghostMarker as any)._activeSeg = segment;
-            }
+            this.ghostMarker.setLatLng(latlng);
+            (this.ghostMarker as any)._activeSeg = segment;
             return;
         }
 
-        const visuals = this.getGhostHandleVisuals();
-        this.ghostMarker = L.marker(latlng, {
-            draggable: true,
-            opacity: 0.7,
-            zIndexOffset: 3000,
-            icon: L.divIcon({
-                className: 'anvil-ghost-marker',
-                html: this.createHandleHtml(visuals.size, visuals.fillColor, visuals.borderColor, visuals.borderWidth),
-                iconSize: [visuals.size, visuals.size],
-                iconAnchor: [visuals.size / 2, visuals.size / 2],
-            }),
-        }).addTo(this.map);
-
-        this.ghostMarker.on('dragstart', () => {
-            this._isDragging = true;
-            const activeSeg = (this.ghostMarker as any)._activeSeg || segment;
-            const startLL = this.ghostMarker!.getLatLng();
-
-            activeSeg.refs.forEach((ref: { layer: L.Path, path: number[] }) => {
-                const fullStructure = (ref.layer as L.Polyline).getLatLngs() as any;
-                let target: any = fullStructure;
-                for (let i = 0; i < ref.path.length - 1; i++) {
-                    target = target[ref.path[i]];
-                }
-                target.splice(ref.path[ref.path.length - 1] + 1, 0, startLL);
-                (ref.layer as L.Polyline).setLatLngs(fullStructure);
-            });
-        });
-
-        this.ghostMarker.on('drag', (e: L.LeafletEvent) => {
-            const mouseEvent = e as L.LeafletMouseEvent;
-            const skipLayersArray = Array.from(this.activeLayers);
-            const additionalPoints = [
-                ...this.markers.map(m => m.getLatLng()),
-                ...Array.from(this.activeLayers).filter(l => l instanceof L.Marker).map(l => (l as L.Marker).getLatLng()),
-            ];
-            const snapped = getSnapLatLng(this.map, mouseEvent.latlng, this.store, this.options, additionalPoints, skipLayersArray);
-
-            if (this.options.preventSelfIntersection) {
-                let wouldIntersect = false;
-                const activeSeg = (this.ghostMarker as any)._activeSeg || segment;
-
-                activeSeg.refs.forEach((ref: { layer: L.Path, path: number[] }) => {
-                    const fullStructure = (ref.layer as L.Polyline).getLatLngs() as any;
-                    let target: any = fullStructure;
-                    for (let i = 0; i < ref.path.length - 1; i++) {
-                        target = target[ref.path[i]];
-                    }
-                    // Ghost marker logic: it's inserted at path + 1
-                    const oldPos = target[ref.path[ref.path.length - 1] + 1];
-                    target[ref.path[ref.path.length - 1] + 1] = snapped;
-
-                    if (isSelfIntersecting(this.map, fullStructure, ref.layer instanceof L.Polygon)) {
-                        wouldIntersect = true;
-                    }
-
-                    // Revert
-                    target[ref.path[ref.path.length - 1] + 1] = oldPos;
-                });
-
-                if (wouldIntersect) return;
-            }
-
-            this.ghostMarker!.setLatLng(snapped);
-
-            const activeSeg = (this.ghostMarker as any)._activeSeg || segment;
-            activeSeg.refs.forEach((ref: { layer: L.Path, path: number[] }) => {
-                const fullStructure = (ref.layer as L.Polyline).getLatLngs() as any;
-                let target: any = fullStructure;
-                for (let i = 0; i < ref.path.length - 1; i++) {
-                    target = target[ref.path[i]];
-                }
-                target[ref.path[ref.path.length - 1] + 1] = snapped;
-                (ref.layer as L.Polyline).setLatLngs(fullStructure);
-                ref.layer.redraw();
-            });
-        });
-
-        this.ghostMarker.on('dragend', () => {
-            this._isDragging = false;
-            this.activeLayers.forEach(l => this.map.fire(ANVIL_EVENTS.EDITED, { layer: l }));
-            this.removeGhost();
-            this.refreshMarkers();
-        });
+        const marker = this.createGhostHandle(latlng);
+        (marker as any)._activeSeg = segment;
+        this.ghostMarker = marker;
     }
 
     private removeGhost(): void {
-        if (this.ghostMarker && !this._isDragging) {
-            this.map.removeLayer(this.ghostMarker);
-            this.ghostMarker = null;
-        }
+        if (!this.ghostMarker || this.isDragging) return;
+
+        this.ghostMarker.off();
+        this.map.removeLayer(this.ghostMarker);
+        this.ghostMarker = null;
     }
 
-    private handleMarkerEdit(marker: L.Marker): void {
+    private enableMarkerEditing(marker: L.Marker): void {
         marker.dragging?.enable();
-        marker.on('drag', (e: L.LeafletEvent) => {
-            const mouseEvent = e as L.LeafletMouseEvent;
-            const additionalPoints = this.markers.map(m => m.getLatLng());
-            const snapped = getSnapLatLng(this.map, mouseEvent.latlng, this.store, this.options, additionalPoints, marker);
+        marker.off('drag');
+        marker.off('dragend');
+        marker.off('contextmenu');
+
+        marker.on('drag', (e: L.LeafletMouseEvent) => {
+            const additionalPoints = this.markers.map(candidate => candidate.getLatLng());
+            const snapped = getSnapLatLng(this.map, e.latlng, this.store, this.options, additionalPoints, marker);
             marker.setLatLng(snapped);
         });
         marker.on('dragend', () => {
             this.map.fire(ANVIL_EVENTS.EDITED, { layer: marker });
         });
-        marker.on('contextmenu', (e: L.LeafletEvent) => {
-            const mouseEvent = e as L.LeafletMouseEvent;
-            L.DomEvent.stopPropagation(mouseEvent);
+        marker.on('contextmenu', (e: L.LeafletMouseEvent) => {
+            this.stopLeafletEvent(e);
             this.activeLayers.delete(marker);
             this.map.removeLayer(marker);
             this.map.fire(ANVIL_EVENTS.DELETED, { layer: marker });
@@ -447,27 +532,9 @@ export class EditMode implements Mode {
         });
     }
 
-    private handleCircleEdit(circle: L.Circle): void {
-        const marker = this.createEditMarker(circle.getLatLng());
-        marker.on('drag', (e: L.LeafletEvent) => {
-            const mouseEvent = e as L.LeafletMouseEvent;
-            const additionalPoints = this.markers.filter(m => m !== marker).map(m => m.getLatLng());
-            const snapped = getSnapLatLng(this.map, mouseEvent.latlng, this.store, this.options, additionalPoints, circle);
-            marker.setLatLng(snapped);
-            circle.setLatLng(snapped);
-        });
-        marker.on('dragend', () => {
-            this.map.fire(ANVIL_EVENTS.EDITED, { layer: circle });
-        });
-        marker.on('contextmenu', (e: L.LeafletEvent) => {
-            const mouseEvent = e as L.LeafletMouseEvent;
-            L.DomEvent.stopPropagation(mouseEvent);
-            this.activeLayers.delete(circle);
-            this.originalLayerStyles.delete(circle);
-            this.map.removeLayer(circle);
-            this.map.fire(ANVIL_EVENTS.DELETED, { layer: circle });
-            this.refreshMarkers();
-        });
+    private createCircleHandle(circle: L.Circle): void {
+        const marker = this.createHandle(circle.getLatLng());
+        this.setHandleMeta(marker, { kind: 'circle', circle });
         this.markers.push(marker);
     }
 
@@ -480,9 +547,24 @@ export class EditMode implements Mode {
                 layer.off('contextmenu');
             }
         });
-        this.markers.forEach(m => this.map.removeLayer(m));
+
+        this.markers.forEach(marker => {
+            this.map.removeLayer(marker);
+        });
+
         this.markers = [];
-        this.removeGhost();
+        this.segments = [];
+        this.dragState = null;
+        this.isDragging = false;
+
+        if (this.ghostMarker) {
+            this.map.removeLayer(this.ghostMarker);
+            this.ghostMarker = null;
+        }
+
+        if (this.map.dragging && !this.map.dragging.enabled()) {
+            this.map.dragging.enable();
+        }
     }
 
     private refreshMarkers(): void {
@@ -518,43 +600,249 @@ export class EditMode implements Mode {
         this.originalLayerStyles.clear();
     }
 
-    private getEditHandleVisuals(): { size: number; fillColor: string; borderColor: string; borderWidth: number } {
-        const selection = getModeSelectionPathOptions(this.options, AnvilMode.Edit, {}, { color: '#ff00ff' });
+    private createHandle(latlng: L.LatLng): L.CircleMarker {
+        const marker = L.circleMarker(latlng, this.getEditHandleOptions()).addTo(this.map);
+        marker.bringToFront();
+        return marker;
+    }
+
+    private createGhostHandle(latlng: L.LatLng): L.CircleMarker {
+        const marker = L.circleMarker(latlng, this.getGhostHandleOptions()).addTo(this.map);
+        marker.bringToFront();
+        return marker;
+    }
+
+    private getEditHandleOptions(): L.CircleMarkerOptions {
         const handle = getModeHandleOptions(this.options, AnvilMode.Edit, {
             radius: 6,
-            color: (selection.color as string | undefined) || '#ff00ff',
+            color: '#ff00ff',
             fillColor: '#fff',
             fillOpacity: 1,
             weight: 2,
         });
 
         return {
-            size: ((handle.radius as number | undefined) || 6) * 2,
-            fillColor: (handle.fillColor as string | undefined) || '#fff',
-            borderColor: (handle.color as string | undefined) || ((selection.color as string | undefined) || '#ff00ff'),
-            borderWidth: (handle.weight as number | undefined) || 2,
+            ...handle,
+            pane: this.handlePaneName,
+            renderer: this.handleRenderer,
+            interactive: false,
+            bubblingMouseEvents: false,
         };
     }
 
-    private getGhostHandleVisuals(): { size: number; fillColor: string; borderColor: string; borderWidth: number } {
-        const selection = getModeSelectionPathOptions(this.options, AnvilMode.Edit, {}, { color: '#ff00ff' });
+    private getGhostHandleOptions(): L.CircleMarkerOptions {
         const handle = getModeHandleOptions(this.options, AnvilMode.Edit, {
             radius: 5,
             color: '#fff',
-            fillColor: (selection.color as string | undefined) || '#ff00ff',
-            fillOpacity: 1,
+            fillColor: '#ff00ff',
+            fillOpacity: 0.85,
             weight: 2,
         });
 
         return {
-            size: ((handle.radius as number | undefined) || 5) * 2,
-            fillColor: (handle.fillColor as string | undefined) || ((selection.color as string | undefined) || '#ff00ff'),
-            borderColor: (handle.color as string | undefined) || '#fff',
-            borderWidth: (handle.weight as number | undefined) || 2,
+            ...handle,
+            pane: this.handlePaneName,
+            renderer: this.handleRenderer,
+            interactive: false,
+            bubblingMouseEvents: false,
         };
     }
 
-    private createHandleHtml(size: number, fillColor: string, borderColor: string, borderWidth: number): string {
-        return `<div style="width: ${size}px; height: ${size}px; background: ${fillColor}; border: ${borderWidth}px solid ${borderColor}; border-radius: 50%; box-sizing: border-box; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>`;
+    private wouldVertexMoveSelfIntersect(ref: VertexRef, latlng: L.LatLng): boolean {
+        const ring = this.getEditableRing(ref);
+        if (!ring) return false;
+
+        const { points, index, isPolygon } = ring;
+        const updatedPoints = points.slice();
+        updatedPoints[index] = latlng;
+
+        const changedSegments = [
+            index - 1,
+            index,
+        ];
+
+        if (isPolygon) {
+            if (changedSegments[0] < 0) changedSegments[0] = points.length - 1;
+            if (changedSegments[1] >= points.length) changedSegments[1] = 0;
+        }
+
+        return this.changedSegmentsIntersect(updatedPoints, changedSegments, isPolygon);
+    }
+
+    private wouldInsertedVertexSelfIntersect(ref: SegmentRef, latlng: L.LatLng): boolean {
+        const ring = this.getEditableRing(ref);
+        if (!ring) return false;
+
+        const { points, index, isPolygon } = ring;
+        const insertAt = index + 1;
+        const updatedPoints = [
+            ...points.slice(0, insertAt),
+            latlng,
+            ...points.slice(insertAt),
+        ];
+
+        return this.changedSegmentsIntersect(updatedPoints, [index, index + 1], isPolygon);
+    }
+
+    private getEditableRing(ref: VertexRef | SegmentRef): { points: L.LatLng[]; index: number; isPolygon: boolean } | null {
+        const fullStructure = (ref.layer as L.Polyline).getLatLngs() as any;
+        let target: any = fullStructure;
+
+        for (let i = 0; i < ref.path.length - 1; i++) {
+            target = target[ref.path[i]];
+        }
+
+        if (!Array.isArray(target)) return null;
+
+        const isPolygon = ref.layer instanceof L.Polygon;
+        const ring = target as L.LatLng[];
+        let points = ring.slice();
+
+        if (isPolygon && points.length > 1 && this.sameLatLng(points[0], points[points.length - 1])) {
+            points = points.slice(0, -1);
+        }
+
+        return {
+            points,
+            index: ref.path[ref.path.length - 1],
+            isPolygon,
+        };
+    }
+
+    private changedSegmentsIntersect(points: L.LatLng[], changedSegments: number[], isPolygon: boolean): boolean {
+        if (points.length < (isPolygon ? 3 : 2)) return false;
+
+        const segmentCount = isPolygon ? points.length : points.length - 1;
+        if (segmentCount < 2) return false;
+
+        const projected = points.map(point => this.map.latLngToLayerPoint(point));
+
+        for (const changedIndex of changedSegments) {
+            if (changedIndex < 0 || changedIndex >= segmentCount) continue;
+
+            const aIndex = changedIndex;
+            const bIndex = this.segmentEndIndex(changedIndex, points.length, isPolygon);
+
+            for (let otherIndex = 0; otherIndex < segmentCount; otherIndex++) {
+                if (otherIndex === changedIndex) continue;
+
+                const cIndex = otherIndex;
+                const dIndex = this.segmentEndIndex(otherIndex, points.length, isPolygon);
+
+                if (this.segmentsShareEndpoint(aIndex, bIndex, cIndex, dIndex)) continue;
+
+                if (segmentsIntersect(
+                    projected[aIndex],
+                    projected[bIndex],
+                    projected[cIndex],
+                    projected[dIndex],
+                )) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private segmentEndIndex(segmentIndex: number, pointCount: number, isPolygon: boolean): number {
+        return isPolygon ? (segmentIndex + 1) % pointCount : segmentIndex + 1;
+    }
+
+    private segmentsShareEndpoint(aStart: number, aEnd: number, bStart: number, bEnd: number): boolean {
+        return aStart === bStart || aStart === bEnd || aEnd === bStart || aEnd === bEnd;
+    }
+
+    private sameLatLng(a: L.LatLng, b: L.LatLng): boolean {
+        return a.lat === b.lat && a.lng === b.lng;
+    }
+
+    private setHandleMeta(marker: L.CircleMarker, meta: HandleMeta): void {
+        (marker as any)._anvilHandleMeta = meta;
+    }
+
+    private hitTestHandle(latlng: L.LatLng): (
+        { kind: 'vertex'; group: VertexGroup; marker: L.CircleMarker }
+        | { kind: 'circle'; circle: L.Circle; marker: L.CircleMarker }
+        | { kind: 'ghost'; segment: SegmentGroup; marker: L.CircleMarker }
+    ) | null {
+        const mousePoint = this.map.latLngToContainerPoint(latlng);
+        let bestMatch: (
+            { kind: 'vertex'; group: VertexGroup; marker: L.CircleMarker }
+            | { kind: 'circle'; circle: L.Circle; marker: L.CircleMarker }
+            | { kind: 'ghost'; segment: SegmentGroup; marker: L.CircleMarker }
+        ) | null = null;
+        let bestDistance = 12;
+
+        const considerMarker = (marker: L.CircleMarker, meta: HandleMeta | { kind: 'ghost'; segment: SegmentGroup }) => {
+            const point = this.map.latLngToContainerPoint(marker.getLatLng());
+            const distance = point.distanceTo(mousePoint);
+            if (distance >= bestDistance) return;
+
+            bestDistance = distance;
+            if (meta.kind === 'ghost') {
+                bestMatch = { kind: 'ghost', segment: meta.segment, marker };
+                return;
+            }
+
+            if (meta.kind === 'circle') {
+                bestMatch = { kind: 'circle', circle: meta.circle, marker };
+                return;
+            }
+
+            bestMatch = { kind: 'vertex', group: meta.group, marker };
+        };
+
+        this.markers.forEach((marker) => {
+            const meta = (marker as any)._anvilHandleMeta as HandleMeta | undefined;
+            if (meta) considerMarker(marker, meta);
+        });
+
+        if (this.ghostMarker) {
+            const segment = ((this.ghostMarker as any)._activeSeg as SegmentGroup | undefined);
+            if (segment) considerMarker(this.ghostMarker, { kind: 'ghost', segment });
+        }
+
+        return bestMatch;
+    }
+
+    private createHandleRenderer(): L.Renderer | undefined {
+        if (typeof document === 'undefined') return undefined;
+        if (typeof navigator !== 'undefined' && /jsdom|node\.js/i.test(navigator.userAgent)) return undefined;
+
+        try {
+            const canvas = document.createElement('canvas');
+            if (typeof canvas.getContext === 'function' && canvas.getContext('2d')) {
+                return L.canvas({ padding: 0.5, pane: this.handlePaneName });
+            }
+        } catch {
+            return undefined;
+        }
+
+        return L.svg({ padding: 0.5, pane: this.handlePaneName });
+    }
+
+    private ensureHandlePane(): void {
+        const existingPane = this.map.getPane(this.handlePaneName);
+        const pane = existingPane || this.map.createPane(this.handlePaneName);
+        pane.style.zIndex = '650';
+        pane.style.pointerEvents = 'none';
+    }
+
+    private stopLeafletEvent(e: L.LeafletEvent): void {
+        L.DomEvent.stopPropagation(e);
+
+        const originalEvent = (e as any)?.originalEvent;
+        if (originalEvent) {
+            L.DomEvent.preventDefault(originalEvent);
+            L.DomEvent.stopPropagation(originalEvent);
+        }
+    }
+
+    private blurActiveElement(): void {
+        if (typeof document === 'undefined') return;
+
+        const activeElement = document.activeElement as { blur?: () => void } | null;
+        activeElement?.blur?.();
     }
 }

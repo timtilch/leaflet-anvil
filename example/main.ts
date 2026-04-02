@@ -1,6 +1,7 @@
 import * as L from 'leaflet';
 import { Anvil, ANVIL_EVENTS, AnvilMode } from '../src';
 import 'leaflet/dist/leaflet.css';
+import sowingSuggestion5Sample from './sowing-suggestion-5-sample.json';
 
 const map = L.map('map').setView([51.505, -0.09], 13);
 const demoLayers = L.featureGroup();
@@ -102,44 +103,41 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors',
 }).addTo(map);
 
-L.polygon([
-    [51.509, -0.11],
-    [51.513, -0.1],
-    [51.507, -0.082],
-    [51.501, -0.097],
-], {
-    color: '#f97316',
-    fillColor: '#fdba74',
-    fillOpacity: 0.35,
-    weight: 3,
-}).addTo(demoLayers);
+const zonePalette = [
+    { stroke: '#14532d', fill: '#86efac' },
+    { stroke: '#166534', fill: '#4ade80' },
+    { stroke: '#15803d', fill: '#22c55e' },
+    { stroke: '#166534', fill: '#bef264' },
+    { stroke: '#365314', fill: '#fde047' },
+];
 
-L.polyline([
-    [51.5, -0.13],
-    [51.502, -0.116],
-    [51.497, -0.102],
-    [51.499, -0.085],
-], {
-    color: '#0f766e',
-    weight: 5,
-}).addTo(demoLayers);
+L.geoJSON(sowingSuggestion5Sample as GeoJSON.FeatureCollection, {
+    style: (feature) => {
+        const rank = Math.max(1, Math.min(5, Number(feature?.properties?.sowingDensityRank) || 1));
+        const colors = zonePalette[rank - 1];
 
-L.circle([51.514, -0.075], {
-    radius: 220,
-    color: '#2563eb',
-    fillColor: '#93c5fd',
-    fillOpacity: 0.25,
-    weight: 3,
-}).addTo(demoLayers);
+        return {
+            color: colors.stroke,
+            fillColor: colors.fill,
+            fillOpacity: 0.42,
+            weight: 2,
+        };
+    },
+    onEachFeature: (feature, layer) => {
+        if (layer instanceof L.Path) {
+            const rank = feature.properties?.sowingDensityRank ?? 'n/a';
+            const area = feature.properties?.areaSquareMeters ?? 'n/a';
+            layer.bindTooltip(`Rank ${rank} • ${area} m²`);
+        }
+    },
+}).eachLayer((layer) => {
+    demoLayers.addLayer(layer);
+});
 
-L.marker([51.504, -0.065], {
-    icon: L.divIcon({
-        className: 'custom-marker-shell',
-        html: '<div class="custom-marker-dot"></div>',
-        iconSize: [18, 18],
-        iconAnchor: [9, 9],
-    }),
-}).addTo(demoLayers);
+demoLayers.addTo(map);
+if (demoLayers.getLayers().length > 0) {
+    map.fitBounds(demoLayers.getBounds(), { padding: [24, 24] });
+}
 
 // Initialize Anvil
 const anvil = new Anvil(map, {
@@ -315,8 +313,8 @@ function renderHint(mode: AnvilMode | null): void {
 
     const content = mode ? MODE_HINTS[mode] : {
         title: 'Choose a Mode',
-        description: 'This demo seeds a few geometries and shows per-mode drawing plus selection styling.',
-        tip: 'Use the toolbar on the left to explore how each mode behaves.',
+        description: 'This demo loads all SOWING_SUGGESTION_5 zones from the sample so you can test editing and topology behavior on real data.',
+        tip: 'Try Split and Edit on the seeded zones to judge how the tools behave on denser geometry.',
     };
 
     hint.innerHTML = `

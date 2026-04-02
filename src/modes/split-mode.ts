@@ -163,21 +163,49 @@ export class SplitMode implements Mode {
         polygon: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
         line: GeoJSON.Feature<GeoJSON.LineString>,
     ): GeoJSON.Feature<GeoJSON.Polygon>[] {
-        const boundary = turf.polygonToLine(polygon as any);
-        const splitBoundary = turf.lineSplit(boundary as any, line as any);
-        const splitLine = turf.lineSplit(line as any, boundary as any);
+        const sanitizedPolygon = this.sanitizePolygonFeature(polygon);
+        const sanitizedLine = this.sanitizeLineStringFeature(line);
+        if (!sanitizedPolygon || !sanitizedLine) return [];
 
-        const innerSegments = splitLine.features.filter((segment) => this.isSegmentInsidePolygon(segment as any, polygon));
+        const boundaryLines = this.getBoundaryLines(sanitizedPolygon);
+        if (boundaryLines.length === 0) return [];
+
+        const intersectionCoords = this.getIntersectionCoords(sanitizedLine, boundaryLines);
+        if (intersectionCoords.length < 2) return [];
+
+        const splitter = turf.multiPoint(intersectionCoords);
+        const splitBoundary: GeoJSON.Feature<GeoJSON.LineString>[] = [];
+
+        boundaryLines.forEach((boundaryLine) => {
+            turf.lineSplit(boundaryLine as any, splitter as any).features.forEach((segment) => {
+                const sanitizedSegment = this.sanitizeLineStringFeature(segment as GeoJSON.Feature<GeoJSON.LineString>);
+                if (sanitizedSegment) splitBoundary.push(sanitizedSegment);
+            });
+        });
+
+        const splitLine = turf.lineSplit(sanitizedLine as any, splitter as any);
+        const innerSegments = splitLine.features
+            .map(segment => this.sanitizeLineStringFeature(segment as GeoJSON.Feature<GeoJSON.LineString>))
+            .filter((segment): segment is GeoJSON.Feature<GeoJSON.LineString> => Boolean(segment))
+            .filter(segment => this.isSegmentInsidePolygon(segment, sanitizedPolygon));
+
         if (innerSegments.length === 0) return [];
 
-        const polygonized = turf.polygonize(
-            turf.featureCollection([
-                ...splitBoundary.features,
-                ...innerSegments,
-            ]),
-        );
+        try {
+            const polygonized = turf.polygonize(
+                turf.featureCollection([
+                    ...splitBoundary,
+                    ...innerSegments,
+                ]),
+            );
 
-        return polygonized.features.filter((feature) => this.isPolygonInsideOriginal(feature as any, polygon));
+            return polygonized.features
+                .map(feature => this.sanitizePolygonFeature(feature as GeoJSON.Feature<GeoJSON.Polygon>))
+                .filter((feature): feature is GeoJSON.Feature<GeoJSON.Polygon> => Boolean(feature) && feature.geometry.type === 'Polygon')
+                .filter(feature => this.isPolygonInsideOriginal(feature, sanitizedPolygon));
+        } catch {
+            return [];
+        }
     }
 
     private isSegmentInsidePolygon(
@@ -192,7 +220,7 @@ export class SplitMode implements Mode {
             turf.point(coords[coords.length - 1]),
         );
 
-        return turf.booleanWithin(midpoint, polygon as any);
+        return turf.booleanWithin(midpoint, polygon as any) || turf.booleanPointInPolygon(midpoint, polygon as any);
     }
 
     private isPolygonInsideOriginal(
@@ -201,6 +229,121 @@ export class SplitMode implements Mode {
     ): boolean {
         const point = turf.pointOnFeature(candidate);
         return turf.booleanWithin(point, original as any) || turf.booleanPointInPolygon(point, original as any);
+    }
+
+    private getBoundaryLines(
+        polygon: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+    ): GeoJSON.Feature<GeoJSON.LineString>[] {
+        const boundary = turf.polygonToLine(polygon as any);
+        const lines: GeoJSON.Feature<GeoJSON.LineString>[] = [];
+
+        turf.flattenEach(boundary as any, (feature) => {
+            const sanitized = this.sanitizeLineStringFeature(feature as GeoJSON.Feature<GeoJSON.LineString>);
+            if (sanitized) lines.push(sanitized);
+        });
+
+        return lines;
+    }
+
+    private getIntersectionCoords(
+        line: GeoJSON.Feature<GeoJSON.LineString>,
+        boundaryLines: GeoJSON.Feature<GeoJSON.LineString>[],
+    ): GeoJSON.Position[] {
+        const intersections = new Map<string, GeoJSON.Position>();
+
+        boundaryLines.forEach((boundaryLine) => {
+            turf.lineIntersect(line as any, boundaryLine as any).features.forEach((feature) => {
+                const coord = turf.getCoord(feature);
+                intersections.set(this.coordKey(coord), coord);
+            });
+        });
+
+        return Array.from(intersections.values());
+    }
+
+    private sanitizeLineStringFeature(
+        feature: GeoJSON.Feature<GeoJSON.LineString>,
+    ): GeoJSON.Feature<GeoJSON.LineString> | null {
+        const cleaned = turf.cleanCoords(feature as any, { mutate: false }) as GeoJSON.Feature<GeoJSON.LineString>;
+        if (cleaned.geometry.type !== 'LineString') return null;
+
+        const coordinates = this.removeSequentialDuplicateCoords(cleaned.geometry.coordinates);
+        const uniqueCoords = new Set(coordinates.map(coord => this.coordKey(coord)));
+        if (coordinates.length < 2 || uniqueCoords.size < 2) return null;
+
+        return turf.lineString(coordinates, cleaned.properties || {}, {
+            bbox: cleaned.bbox,
+            id: cleaned.id,
+        });
+    }
+
+    private sanitizePolygonFeature<T extends GeoJSON.Polygon | GeoJSON.MultiPolygon>(
+        feature: GeoJSON.Feature<T>,
+    ): GeoJSON.Feature<T> | null {
+        const cleaned = turf.cleanCoords(feature as any, { mutate: false }) as GeoJSON.Feature<T>;
+
+        if (cleaned.geometry.type === 'Polygon') {
+            const rings = cleaned.geometry.coordinates
+                .map(ring => this.normalizeRing(ring))
+                .filter(ring => this.isValidRing(ring));
+
+            if (rings.length === 0) return null;
+
+            return turf.polygon(rings, cleaned.properties || {}, {
+                bbox: cleaned.bbox,
+                id: cleaned.id,
+            }) as GeoJSON.Feature<T>;
+        }
+
+        const polygons = cleaned.geometry.coordinates
+            .map(polygon => polygon
+                .map(ring => this.normalizeRing(ring))
+                .filter(ring => this.isValidRing(ring)))
+            .filter(polygon => polygon.length > 0);
+
+        if (polygons.length === 0) return null;
+
+        return turf.multiPolygon(polygons, cleaned.properties || {}, {
+            bbox: cleaned.bbox,
+            id: cleaned.id,
+        }) as GeoJSON.Feature<T>;
+    }
+
+    private normalizeRing(ring: GeoJSON.Position[]): GeoJSON.Position[] {
+        const deduped = this.removeSequentialDuplicateCoords(ring);
+        if (deduped.length === 0) return deduped;
+
+        const first = deduped[0];
+        const last = deduped[deduped.length - 1];
+        if (this.coordKey(first) !== this.coordKey(last)) {
+            deduped.push([...first]);
+        }
+
+        return deduped;
+    }
+
+    private removeSequentialDuplicateCoords(coords: GeoJSON.Position[]): GeoJSON.Position[] {
+        const result: GeoJSON.Position[] = [];
+
+        coords.forEach((coord) => {
+            if (result.length === 0 || this.coordKey(result[result.length - 1]) !== this.coordKey(coord)) {
+                result.push([...coord]);
+            }
+        });
+
+        return result;
+    }
+
+    private isValidRing(ring: GeoJSON.Position[]): boolean {
+        if (ring.length < 4) return false;
+        if (this.coordKey(ring[0]) !== this.coordKey(ring[ring.length - 1])) return false;
+
+        const uniqueCoords = new Set(ring.slice(0, -1).map(coord => this.coordKey(coord)));
+        return uniqueCoords.size >= 3;
+    }
+
+    private coordKey(coord: GeoJSON.Position): string {
+        return `${coord[0].toFixed(12)},${coord[1].toFixed(12)}`;
     }
 
     private insertVerticesIntoNeighbors(intersections: any, activePolygon: L.Polygon): void {

@@ -40,6 +40,7 @@ export interface AnvilOptions {
     layerGroup?: L.FeatureGroup;
     snapping?: boolean;
     snapDistance?: number;
+    magnetic?: boolean;
     freehandTolerance?: number;
     preventSelfIntersection?: boolean;
     pathOptions?: L.PathOptions;
@@ -61,6 +62,25 @@ export interface AnvilModeStyleOptions {
 
 export type AnvilModeStyles = Partial<Record<AnvilMode, AnvilModeStyleOptions>>;
 
+const ANVIL_INTERACTION_STYLE_ID = 'anvil-interaction-styles';
+
+function ensureInteractionStyles(): void {
+    if (typeof document === 'undefined' || document.getElementById(ANVIL_INTERACTION_STYLE_ID)) return;
+
+    const style = document.createElement('style');
+    style.id = ANVIL_INTERACTION_STYLE_ID;
+    style.textContent = `
+        .leaflet-container .leaflet-pane .leaflet-interactive:focus,
+        .leaflet-container .leaflet-pane .leaflet-interactive:focus-visible,
+        .leaflet-container .leaflet-pane svg path:focus,
+        .leaflet-container .leaflet-pane svg path:focus-visible {
+            outline: none !important;
+        }
+    `;
+
+    document.head.appendChild(style);
+}
+
 export class Anvil {
     private modeManager: ModeManager;
     private store: LayerStore;
@@ -68,6 +88,8 @@ export class Anvil {
     private control?: L.Control;
 
     constructor(private map: L.Map, options?: AnvilOptions) {
+        ensureInteractionStyles();
+
         this.options = {
             snapping: false,
             snapDistance: 10,

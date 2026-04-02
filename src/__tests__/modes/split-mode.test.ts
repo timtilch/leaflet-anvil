@@ -55,4 +55,20 @@ describe('SplitMode', () => {
 
         expect(hasInsertedCorner).toBe(true);
     });
+
+    it('handles polygons with holes without throwing', () => {
+        const polygon = L.polygon([
+            [[0, 0], [0, 8], [8, 8], [8, 0]],
+            [[3, 3], [3, 5], [5, 5], [5, 3]],
+        ]).addTo(map);
+        store.addLayer(polygon);
+
+        const created = vi.fn();
+        map.on(ANVIL_EVENTS.CREATED, created);
+
+        (mode as any).points = [L.latLng(6, -1), L.latLng(6, 9)];
+
+        expect(() => (mode as any).finish()).not.toThrow();
+        expect(created).toHaveBeenCalledTimes(2);
+    });
 });
