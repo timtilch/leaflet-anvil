@@ -3,9 +3,12 @@ import * as turf from '@turf/turf';
 import { AnvilOptions, Mode } from '../anvil';
 import { LayerStore } from '../layers/layer-store';
 import { ANVIL_EVENTS } from '../events';
+import { AnvilMode } from '../types';
+import { getModePathOptions, getModeSelectionPathOptions } from '../utils/mode-styles';
 
 export class SubtractMode implements Mode {
     private baseLayer: L.Polygon | null = null;
+    private baseLayerStyle: L.PathOptions | null = null;
 
     constructor(
         private map: L.Map,
@@ -39,7 +42,13 @@ export class SubtractMode implements Mode {
 
         if (!this.baseLayer) {
             this.baseLayer = layer;
-            this.baseLayer.setStyle({ color: '#ff0000', weight: 4 });
+            this.baseLayerStyle = { ...layer.options };
+            this.baseLayer.setStyle(
+                getModeSelectionPathOptions(this.options, AnvilMode.Subtract, this.baseLayerStyle, {
+                    color: '#ff0000',
+                    weight: 4,
+                }),
+            );
             return;
         }
 
@@ -64,7 +73,9 @@ export class SubtractMode implements Mode {
             // Flatten result and add all parts
             const flattened = turf.flatten(diff);
             flattened.features.forEach(f => {
-                const newLayerGroup = L.geoJSON(f);
+                const newLayerGroup = L.geoJSON(f, {
+                    style: getModePathOptions(this.options, AnvilMode.Subtract),
+                });
                 const l = newLayerGroup.getLayers()[0] as L.Polygon;
                 l.addTo(this.map);
                 this.map.fire(ANVIL_EVENTS.CREATED, { layer: l });
@@ -72,12 +83,14 @@ export class SubtractMode implements Mode {
         }
 
         this.baseLayer = null;
+        this.baseLayerStyle = null;
     }
 
     private reset(): void {
         if (this.baseLayer) {
-            this.baseLayer.setStyle({ color: '#3388ff', weight: 3 });
+            this.baseLayer.setStyle(this.baseLayerStyle || {});
             this.baseLayer = null;
+            this.baseLayerStyle = null;
         }
     }
 }

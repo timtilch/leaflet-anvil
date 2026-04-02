@@ -2,6 +2,8 @@ import * as L from 'leaflet';
 import { AnvilOptions, Mode } from '../anvil';
 import { ANVIL_EVENTS } from '../events';
 import { LayerStore } from '../layers/layer-store';
+import { AnvilMode } from '../types';
+import { getModeGhostPathOptions, getModeHandleOptions, getModePathOptions } from '../utils/mode-styles';
 import { getSnapLatLng } from '../utils/snapping';
 import { causesSelfIntersection } from '../utils/geometry';
 
@@ -75,11 +77,14 @@ export class DrawPolygonMode implements Mode {
             : e.latlng;
         const lastPoint = this.points[this.points.length - 1];
         if (!this.ghostLine) {
-            this.ghostLine = L.polyline([lastPoint, snapLatLng], {
-                dashArray: '5, 5',
-                color: '#3388ff',
-                weight: 2,
-            }).addTo(this.map);
+            this.ghostLine = L.polyline(
+                [lastPoint, snapLatLng],
+                getModeGhostPathOptions(this.options, AnvilMode.Polygon, {
+                    dashArray: '5, 5',
+                    color: '#3388ff',
+                    weight: 2,
+                }),
+            ).addTo(this.map);
         } else {
             this.ghostLine.setLatLngs([lastPoint, snapLatLng]);
         }
@@ -95,18 +100,21 @@ export class DrawPolygonMode implements Mode {
         if (this.polyline) {
             this.polyline.setLatLngs(this.points);
         } else {
-            this.polyline = L.polyline(this.points, { color: '#3388ff' }).addTo(this.map);
+            this.polyline = L.polyline(
+                this.points,
+                getModePathOptions(this.options, AnvilMode.Polygon, { color: '#3388ff' }),
+            ).addTo(this.map);
         }
 
         // Add a marker for the first point to make it easier to click
         if (this.points.length === 1 && this.markers.length === 0) {
-            const marker = L.circleMarker(this.points[0], {
-                radius: 5,
-                fillColor: '#fff',
-                fillOpacity: 1,
-                color: '#3388ff',
-                weight: 2,
-            }).addTo(this.map);
+            const marker = L.circleMarker(
+                this.points[0],
+                getModeHandleOptions(this.options, AnvilMode.Polygon, {
+                    radius: 5,
+                    color: '#3388ff',
+                }),
+            ).addTo(this.map);
             marker.on('click', (e) => {
                 L.DomEvent.stopPropagation(e);
                 this.finish();
@@ -117,7 +125,10 @@ export class DrawPolygonMode implements Mode {
 
     private finish(): void {
         if (this.points.length < 3) return;
-        const polygon = L.polygon(this.points).addTo(this.map);
+        const polygon = L.polygon(
+            this.points,
+            getModePathOptions(this.options, AnvilMode.Polygon),
+        ).addTo(this.map);
         this.map.fire(ANVIL_EVENTS.CREATED, { layer: polygon });
         this.reset();
     }

@@ -3,6 +3,7 @@ import * as L from 'leaflet';
 import { DrawPolylineMode } from '../../modes/draw-polyline-mode';
 import { LayerStore } from '../../layers/layer-store';
 import { ANVIL_EVENTS } from '../../events';
+import { AnvilMode } from '../../types';
 import { createMap, fireMapClick } from '../helpers/leaflet-mock';
 
 describe('DrawPolylineMode', () => {
@@ -84,5 +85,32 @@ describe('DrawPolylineMode', () => {
         });
 
         expect(handler).toHaveBeenCalledOnce();
+    });
+
+    it('allows mode-specific line styles to override global path options', () => {
+        mode.disable();
+
+        const styledMode = new DrawPolylineMode(map, {
+            pathOptions: { color: '#123456', weight: 2 },
+            modeStyles: {
+                [AnvilMode.Polyline]: {
+                    pathOptions: { color: '#ff6600', weight: 6 },
+                },
+            },
+        }, store);
+        styledMode.enable();
+
+        const handler = vi.fn();
+        map.on(ANVIL_EVENTS.CREATED, handler);
+
+        fireMapClick(map, 0, 0);
+        fireMapClick(map, 1, 1);
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+
+        const polyline = handler.mock.calls[0][0].layer as L.Polyline;
+        expect(polyline.options.color).toBe('#ff6600');
+        expect(polyline.options.weight).toBe(6);
+
+        styledMode.disable();
     });
 });

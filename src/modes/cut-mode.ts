@@ -3,6 +3,8 @@ import * as turf from '@turf/turf';
 import { AnvilOptions, Mode } from '../anvil';
 import { LayerStore } from '../layers/layer-store';
 import { ANVIL_EVENTS } from '../events';
+import { AnvilMode } from '../types';
+import { getModeGhostPathOptions, getModeHandleOptions, getModePathOptions } from '../utils/mode-styles';
 import { getSnapLatLng } from '../utils/snapping';
 
 export class CutMode implements Mode {
@@ -58,11 +60,14 @@ export class CutMode implements Mode {
         const snapLatLng = getSnapLatLng(this.map, e.latlng, this.store, this.options, this.points);
         const lastPoint = this.points[this.points.length - 1];
         if (!this.ghostLine) {
-            this.ghostLine = L.polyline([lastPoint, snapLatLng], {
-                dashArray: '5, 5',
-                color: '#ff0000',
-                weight: 2,
-            }).addTo(this.map);
+            this.ghostLine = L.polyline(
+                [lastPoint, snapLatLng],
+                getModeGhostPathOptions(this.options, AnvilMode.Cut, {
+                    dashArray: '5, 5',
+                    color: '#ff0000',
+                    weight: 2,
+                }),
+            ).addTo(this.map);
         } else {
             this.ghostLine.setLatLngs([lastPoint, snapLatLng]);
         }
@@ -78,17 +83,20 @@ export class CutMode implements Mode {
         if (this.polyline) {
             this.polyline.setLatLngs(this.points);
         } else {
-            this.polyline = L.polyline(this.points, { color: '#ff0000' }).addTo(this.map);
+            this.polyline = L.polyline(
+                this.points,
+                getModePathOptions(this.options, AnvilMode.Cut, { color: '#ff0000' }),
+            ).addTo(this.map);
         }
 
         if (this.points.length === 1 && this.markers.length === 0) {
-            const marker = L.circleMarker(this.points[0], {
-                radius: 6,
-                fillColor: '#fff',
-                fillOpacity: 1,
-                color: '#ff0000',
-                weight: 2,
-            }).addTo(this.map);
+            const marker = L.circleMarker(
+                this.points[0],
+                getModeHandleOptions(this.options, AnvilMode.Cut, {
+                    radius: 6,
+                    color: '#ff0000',
+                }),
+            ).addTo(this.map);
             marker.on('click', (e) => {
                 L.DomEvent.stopPropagation(e);
                 if (this.points.length >= 3) this.finish();
@@ -127,7 +135,9 @@ export class CutMode implements Mode {
 
                 const flattened = turf.flatten(result);
                 flattened.features.forEach(f => {
-                    const l = L.geoJSON(f).getLayers()[0] as L.Polygon;
+                    const l = L.geoJSON(f, {
+                        style: getModePathOptions(this.options, AnvilMode.Cut),
+                    }).getLayers()[0] as L.Polygon;
                     l.addTo(this.map);
                     this.map.fire(ANVIL_EVENTS.CREATED, { layer: l });
                 });

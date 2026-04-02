@@ -2,6 +2,8 @@ import * as L from 'leaflet';
 import { AnvilOptions, Mode } from '../anvil';
 import { ANVIL_EVENTS } from '../events';
 import { LayerStore } from '../layers/layer-store';
+import { AnvilMode } from '../types';
+import { getModeVertexOptions } from '../utils/mode-styles';
 import { getSnapLatLng } from '../utils/snapping';
 
 export class DrawMarkerMode implements Mode {
@@ -24,7 +26,7 @@ export class DrawMarkerMode implements Mode {
 
     private onClick(e: L.LeafletMouseEvent): void {
         const latlng = this.store ? getSnapLatLng(this.map, e.latlng, this.store, this.options) : e.latlng;
-        const marker = L.marker(latlng, this.options.vertexOptions).addTo(this.map);
+        const marker = L.marker(latlng, getModeVertexOptions(this.options, AnvilMode.Marker)).addTo(this.map);
         this.map.fire(ANVIL_EVENTS.CREATED, { layer: marker });
     }
 }

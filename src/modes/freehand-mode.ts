@@ -3,6 +3,8 @@ import * as turf from '@turf/turf';
 import { AnvilOptions, Mode } from '../anvil';
 import { LayerStore } from '../layers/layer-store';
 import { ANVIL_EVENTS } from '../events';
+import { AnvilMode } from '../types';
+import { getModeGhostPathOptions, getModePathOptions } from '../utils/mode-styles';
 
 export class FreehandMode implements Mode {
     private points: L.LatLng[] = [];
@@ -66,12 +68,15 @@ export class FreehandMode implements Mode {
         if (this.polyline) {
             this.polyline.setLatLngs(this.points);
         } else {
-            this.polyline = L.polyline(this.points, {
-                color: '#3388ff',
-                weight: 3,
-                opacity: 0.8,
-                dashArray: '5, 5',
-            }).addTo(this.map);
+            this.polyline = L.polyline(
+                this.points,
+                getModeGhostPathOptions(this.options, AnvilMode.Freehand, {
+                    color: '#3388ff',
+                    weight: 3,
+                    opacity: 0.8,
+                    dashArray: '5, 5',
+                }),
+            ).addTo(this.map);
         }
     }
 
@@ -93,7 +98,10 @@ export class FreehandMode implements Mode {
             finalCoords.push(finalCoords[0]);
         }
 
-        const finalPolygon = L.polygon(finalCoords.map(c => [c[1], c[0]]) as L.LatLngExpression[]).addTo(this.map);
+        const finalPolygon = L.polygon(
+            finalCoords.map(c => [c[1], c[0]]) as L.LatLngExpression[],
+            getModePathOptions(this.options, AnvilMode.Freehand),
+        ).addTo(this.map);
 
         this.map.fire(ANVIL_EVENTS.CREATED, { layer: finalPolygon });
         this.resetDrawing();

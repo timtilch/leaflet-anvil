@@ -3,6 +3,7 @@ import * as L from 'leaflet';
 import { DragMode } from '../../modes/drag-mode';
 import { LayerStore } from '../../layers/layer-store';
 import { ANVIL_EVENTS } from '../../events';
+import { AnvilMode } from '../../types';
 import { createMap } from '../helpers/leaflet-mock';
 
 function fireMouseDown(layer: L.Layer, lat: number, lng: number) {
@@ -88,5 +89,35 @@ describe('DragMode', () => {
 
         store.addLayer(marker);
         expect(spy).toHaveBeenCalledWith('mousedown', expect.any(Function), expect.anything());
+    });
+
+    it('uses selectionPathOptions while dragging and restores the original style afterwards', () => {
+        const polygon = L.polygon([[0, 0], [1, 0], [0, 1]], {
+            color: '#123456',
+            weight: 2,
+        }).addTo(map);
+        store.addLayer(polygon);
+
+        const styledMode = new DragMode(map, store, {
+            modeStyles: {
+                [AnvilMode.Drag]: {
+                    selectionPathOptions: {
+                        color: '#f97316',
+                        weight: 6,
+                    },
+                },
+            },
+        });
+        styledMode.enable();
+
+        fireMouseDown(polygon, 0, 0);
+        expect(polygon.options.color).toBe('#f97316');
+        expect(polygon.options.weight).toBe(6);
+
+        fireMouseUp(map);
+        expect(polygon.options.color).toBe('#123456');
+        expect(polygon.options.weight).toBe(2);
+
+        styledMode.disable();
     });
 });

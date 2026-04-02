@@ -2,6 +2,8 @@ import * as L from 'leaflet';
 import { AnvilOptions, Mode } from '../anvil';
 import { ANVIL_EVENTS } from '../events';
 import { LayerStore } from '../layers/layer-store';
+import { AnvilMode } from '../types';
+import { getModeGhostPathOptions, getModePathOptions } from '../utils/mode-styles';
 import { getSnapLatLng } from '../utils/snapping';
 
 export class DrawSquareMode implements Mode {
@@ -43,7 +45,13 @@ export class DrawSquareMode implements Mode {
         const squareBounds = this.getSquareBounds(this.startLatLng, currentLatLng);
 
         if (!this.rectangle) {
-            this.rectangle = L.rectangle(squareBounds, { color: '#3388ff', weight: 2 }).addTo(this.map);
+            this.rectangle = L.rectangle(
+                squareBounds,
+                getModeGhostPathOptions(this.options, AnvilMode.Square, {
+                    color: '#3388ff',
+                    weight: 2,
+                }),
+            ).addTo(this.map);
         } else {
             this.rectangle.setBounds(squareBounds);
         }
@@ -55,12 +63,15 @@ export class DrawSquareMode implements Mode {
         const currentLatLng = this.store ? getSnapLatLng(this.map, e.latlng, this.store, this.options) : e.latlng;
         const squareBounds = this.getSquareBounds(this.startLatLng, currentLatLng);
 
-        const polygon = L.polygon([
-            squareBounds.getNorthWest(),
-            squareBounds.getNorthEast(),
-            squareBounds.getSouthEast(),
-            squareBounds.getSouthWest(),
-        ]).addTo(this.map);
+        const polygon = L.polygon(
+            [
+                squareBounds.getNorthWest(),
+                squareBounds.getNorthEast(),
+                squareBounds.getSouthEast(),
+                squareBounds.getSouthWest(),
+            ],
+            getModePathOptions(this.options, AnvilMode.Square),
+        ).addTo(this.map);
 
         this.map.fire(ANVIL_EVENTS.CREATED, { layer: polygon });
         this.reset();
@@ -89,4 +100,3 @@ export class DrawSquareMode implements Mode {
         this.startLatLng = null;
     }
 }
-

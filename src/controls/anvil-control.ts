@@ -1,48 +1,126 @@
 import * as L from 'leaflet';
+import {
+    Circle,
+    Hand,
+    MapPin,
+    Move,
+    Pentagon,
+    Power,
+    RectangleHorizontal,
+    RotateCw,
+    Scaling,
+    Scissors,
+    Split,
+    Square,
+    SquarePen,
+    SquaresSubtract,
+    SquaresUnite,
+    Trash2,
+    Triangle,
+    Waypoints,
+    createElement,
+    type IconNode,
+} from 'lucide';
 import { AnvilMode } from '../types';
 import { Anvil } from '../anvil';
 import { ANVIL_EVENTS } from '../events';
 
-const SVG_ATTRS = 'xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+const ANVIL_TOOLBAR_STYLE_ID = 'anvil-toolbar-styles';
 
-const ICONS: { [key in AnvilMode]: string } = {
-    // Marker: Map-Pin mit Punkt in der Mitte
-    [AnvilMode.Marker]: `<svg ${SVG_ATTRS}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>`,
-    // Polyline: Kurvige Route mit Endpunkten
-    [AnvilMode.Polyline]: `<svg ${SVG_ATTRS}><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/><circle cx="6" cy="19" r="3"/></svg>`,
-    // Polygon: Klassische unregelmäßige 5-Eck-Form
-    [AnvilMode.Polygon]: `<svg ${SVG_ATTRS}><path d="m12 2 10 7-3 12H5l-3-12Z"/></svg>`,
-    // Rectangle: Horizontales Rechteck
-    [AnvilMode.Rectangle]: `<svg ${SVG_ATTRS}><rect width="20" height="12" x="2" y="6" rx="2"/></svg>`,
-    // Square: Quadratisches Rechteck (1:1)
-    [AnvilMode.Square]: `<svg ${SVG_ATTRS}><rect width="18" height="18" x="3" y="3" rx="2"/></svg>`,
-    // Triangle: Gleichschenkliges Dreieck
-    [AnvilMode.Triangle]: `<svg ${SVG_ATTRS}><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/></svg>`,
-    // Circle: Klassischer Kreis
-    [AnvilMode.Circle]: `<svg ${SVG_ATTRS}><circle cx="12" cy="12" r="10"/></svg>`,
-    // Freehand: Geschwungene Signatur-Linie
-    [AnvilMode.Freehand]: `<svg ${SVG_ATTRS}><path d="m3 16 2 2 16-16"/><path d="M7 21h14"/><path d="M3 11c0 2 2 2 2 2z"/></svg>`,
-    // Cut: Offene Schere
-    [AnvilMode.Cut]: `<svg ${SVG_ATTRS}><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88"/><path d="M14.47 14.48 20 20"/><path d="M8.12 8.12 12 12"/></svg>`,
-    // Split: Linie, die eine Form teilt
-    [AnvilMode.Split]: `<svg ${SVG_ATTRS}><path d="M3 12h18"/><path d="M8 3v18"/><path d="M16 3v18"/><rect width="18" height="18" x="3" y="3" rx="2" stroke-dasharray="4 4" opacity="0.5"/></svg>`,
-    // Union: Zwei verschmolzene Rechtecke
-    [AnvilMode.Union]: `<svg ${SVG_ATTRS}><path d="M8 4H4v4"/><path d="M4 12v4a2 2 0 0 0 2 2h4"/><path d="M14 18h4v-4"/><path d="M20 10V6a2 2 0 0 0-2-2h-4"/><path d="M14 10h-4v4" stroke-dasharray="2 2"/></svg>`,
-    // Subtract: Hauptform mit "ausgeschnittenem" Bereich (Minus-Metapher)
-    [AnvilMode.Subtract]: `<svg ${SVG_ATTRS}><path d="M4 4h16v16H4z"/><path d="M10 10h10v10H10z" stroke-dasharray="2 2" opacity="0.7"/><path d="M15 6h-6"/></svg>`,
-    // Drag: Vier-Wege-Pfeil (Move-Metapher)
-    [AnvilMode.Drag]: `<svg ${SVG_ATTRS}><path d="m5 9-3 3 3 3"/><path d="m9 5 3-3 3 3"/><path d="m15 19 3 3 3-3"/><path d="m19 9 3 3-3 3"/><path d="M2 12h20"/><path d="M12 2v20"/></svg>`,
-    // Scale: Diagonal-Pfeile (Maximize-Metapher)
-    [AnvilMode.Scale]: `<svg ${SVG_ATTRS}><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3 14 10"/><path d="M3 21l7-7"/></svg>`,
-    // Rotate: Kreispfeil mit Ziel-Icon
-    [AnvilMode.Rotate]: `<svg ${SVG_ATTRS}><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>`,
-    // Edit: Stift, der über einen Pfad zeichnet
-    [AnvilMode.Edit]: `<svg ${SVG_ATTRS}><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>`,
-    // Delete: Mülleimer mit Deckel und Schlitzen
-    [AnvilMode.Delete]: `<svg ${SVG_ATTRS}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>`,
-    // Off: Durchgestrichener Kreis (Power-Off/Disable Metapher)
-    [AnvilMode.Off]: `<svg ${SVG_ATTRS}><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`,
-};
+const MODE_CONFIGS: Array<{ id: AnvilMode; title: string; icon: IconNode }> = [
+    { id: AnvilMode.Marker, title: 'Marker', icon: MapPin },
+    { id: AnvilMode.Polyline, title: 'Line', icon: Waypoints },
+    { id: AnvilMode.Polygon, title: 'Polygon', icon: Pentagon },
+    { id: AnvilMode.Rectangle, title: 'Rectangle', icon: RectangleHorizontal },
+    { id: AnvilMode.Square, title: 'Square', icon: Square },
+    { id: AnvilMode.Triangle, title: 'Triangle', icon: Triangle },
+    { id: AnvilMode.Circle, title: 'Circle', icon: Circle },
+    { id: AnvilMode.Freehand, title: 'Freehand', icon: Hand },
+    { id: AnvilMode.Cut, title: 'Cut', icon: Scissors },
+    { id: AnvilMode.Split, title: 'Split', icon: Split },
+    { id: AnvilMode.Union, title: 'Union', icon: SquaresUnite },
+    { id: AnvilMode.Subtract, title: 'Subtract', icon: SquaresSubtract },
+    { id: AnvilMode.Drag, title: 'Drag', icon: Move },
+    { id: AnvilMode.Scale, title: 'Scale', icon: Scaling },
+    { id: AnvilMode.Rotate, title: 'Rotate', icon: RotateCw },
+    { id: AnvilMode.Edit, title: 'Edit', icon: SquarePen },
+    { id: AnvilMode.Delete, title: 'Delete', icon: Trash2 },
+    { id: AnvilMode.Off, title: 'Turn Off', icon: Power },
+];
+
+function ensureToolbarStyles(): void {
+    if (typeof document === 'undefined' || document.getElementById(ANVIL_TOOLBAR_STYLE_ID)) return;
+
+    const style = document.createElement('style');
+    style.id = ANVIL_TOOLBAR_STYLE_ID;
+    style.textContent = `
+        .anvil-toolbar-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .anvil-toolbar-group {
+            overflow: hidden;
+        }
+
+        .anvil-toolbar-group .anvil-control-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            color: #2f3b52;
+            transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+        }
+
+        .anvil-toolbar-group .anvil-control-btn svg {
+            width: 16px;
+            height: 16px;
+            stroke-width: 2.1;
+        }
+
+        .anvil-toolbar-group .anvil-control-btn:hover,
+        .anvil-toolbar-group .anvil-control-btn:focus-visible {
+            background-color: #f3f6fb;
+            color: #0f172a;
+        }
+
+        .anvil-toolbar-group .anvil-control-btn:focus-visible {
+            outline: none;
+            box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.35);
+        }
+
+        .anvil-toolbar-group .anvil-control-btn.is-active {
+            background-color: #2563eb;
+            color: #fff;
+            box-shadow: inset 0 0 0 1px rgba(29, 78, 216, 0.45), 0 1px 3px rgba(37, 99, 235, 0.25);
+        }
+
+        .anvil-toolbar-group .anvil-control-btn.is-active:hover,
+        .anvil-toolbar-group .anvil-control-btn.is-active:focus-visible {
+            background-color: #1d4ed8;
+            color: #fff;
+        }
+    `;
+
+    document.head.appendChild(style);
+}
+
+function setButtonState(button: HTMLElement, active: boolean): void {
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+}
+
+function buildIcon(iconNode: IconNode): SVGElement {
+    return createElement(iconNode, {
+        width: 16,
+        height: 16,
+        'stroke-width': 2.1,
+        'aria-hidden': 'true',
+        focusable: 'false',
+    });
+}
 
 export interface AnvilControlOptions extends L.ControlOptions {
     position?: L.ControlPosition;
@@ -61,102 +139,54 @@ export class AnvilControl extends L.Control {
     }
 
     onAdd(map: L.Map): HTMLElement {
-        console.log('AnvilControl: triggering onAdd');
+        ensureToolbarStyles();
+
         const container = L.DomUtil.create('div', 'anvil-toolbar-container');
-        container.style.display = 'flex';
-        container.style.flexDirection = 'column';
-        container.style.gap = '10px';
-
-        const allModeConfigs: { id: AnvilMode; title: string }[] = [
-            { id: AnvilMode.Marker, title: 'Marker' },
-            { id: AnvilMode.Polyline, title: 'Line' },
-            { id: AnvilMode.Polygon, title: 'Polygon' },
-            { id: AnvilMode.Rectangle, title: 'Rectangle' },
-            { id: AnvilMode.Square, title: 'Square' },
-            { id: AnvilMode.Triangle, title: 'Triangle' },
-            { id: AnvilMode.Circle, title: 'Circle' },
-            { id: AnvilMode.Freehand, title: 'Freehand' },
-            { id: AnvilMode.Cut, title: 'Cut' },
-            { id: AnvilMode.Split, title: 'Split' },
-            { id: AnvilMode.Union, title: 'Union' },
-            { id: AnvilMode.Subtract, title: 'Subtract' },
-            { id: AnvilMode.Drag, title: 'Drag' },
-            { id: AnvilMode.Scale, title: 'Scale' },
-            { id: AnvilMode.Rotate, title: 'Rotate' },
-            { id: AnvilMode.Edit, title: 'Edit' },
-            { id: AnvilMode.Delete, title: 'Delete' },
-        ];
-
-        const modesInput = this._options.modes || allModeConfigs.map(m => m.id);
+        const modesInput = this._options.modes || MODE_CONFIGS.filter(({ id }) => id !== AnvilMode.Off).map(({ id }) => id);
         const blocks = Array.isArray(modesInput[0])
             ? modesInput as AnvilMode[][]
             : [modesInput as AnvilMode[]];
 
-        blocks.forEach((block, index) => {
-            const group = L.DomUtil.create('div', 'leaflet-bar anvil-toolbar-group', container);
-            group.style.display = 'flex';
-            group.style.flexDirection = 'column';
-            group.style.backgroundColor = 'white';
+        const createButton = (group: HTMLElement, config: { id: AnvilMode; title: string; icon: IconNode }): void => {
+            const btn = L.DomUtil.create('a', 'anvil-control-btn', group);
+            btn.href = '#';
+            btn.title = config.title;
+            btn.setAttribute('role', 'button');
+            btn.setAttribute('aria-label', config.title);
+            btn.appendChild(buildIcon(config.icon));
 
-            block.forEach(modeId => {
-                const config = allModeConfigs.find(c => c.id === modeId);
-                if (!config && modeId !== AnvilMode.Off) return;
-
-                const id = modeId;
-                const title = config ? config.title : 'Turn Off';
-
-                const btn = L.DomUtil.create('a', 'anvil-control-btn', group);
-                btn.innerHTML = ICONS[id] || title;
-                btn.href = '#';
-                btn.title = title;
-                btn.style.display = 'flex';
-                btn.style.alignItems = 'center';
-                btn.style.justifyContent = 'center';
-                btn.style.width = '30px';
-                btn.style.height = '30px';
-                btn.style.color = '#333';
-                btn.style.cursor = 'pointer';
-
-                L.DomEvent.disableClickPropagation(btn);
-                L.DomEvent.on(btn, 'click', (e) => {
-                    L.DomEvent.preventDefault(e);
-                    if (id === AnvilMode.Off) {
-                        this._anvil.disable();
-                    } else {
-                        this._anvil.enable(id);
-                    }
-                });
-
-                this._btns[id] = btn;
+            L.DomEvent.disableClickPropagation(btn);
+            L.DomEvent.on(btn, 'click', (e) => {
+                L.DomEvent.preventDefault(e);
+                if (config.id === AnvilMode.Off) {
+                    this._anvil.disable();
+                } else {
+                    this._anvil.enable(config.id);
+                }
             });
 
-            // Add "off" button only to the last block if not explicitly provided
-            if (index === blocks.length - 1 && !this._btns[AnvilMode.Off]) {
-                const offBtn = L.DomUtil.create('a', 'anvil-control-btn', group);
-                offBtn.innerHTML = ICONS[AnvilMode.Off];
-                offBtn.href = '#';
-                offBtn.title = 'Turn Off';
-                offBtn.style.display = 'flex';
-                offBtn.style.alignItems = 'center';
-                offBtn.style.justifyContent = 'center';
-                offBtn.style.width = '30px';
-                offBtn.style.height = '30px';
-                offBtn.style.color = '#333';
-                offBtn.style.cursor = 'pointer';
+            this._btns[config.id] = btn;
+        };
 
-                L.DomEvent.disableClickPropagation(offBtn);
-                L.DomEvent.on(offBtn, 'click', (e) => {
-                    L.DomEvent.preventDefault(e);
-                    this._anvil.disable();
-                });
-                this._btns[AnvilMode.Off] = offBtn;
+        blocks.forEach((block, index) => {
+            const group = L.DomUtil.create('div', 'leaflet-bar anvil-toolbar-group', container);
+
+            block.forEach(modeId => {
+                const config = MODE_CONFIGS.find(({ id }) => id === modeId);
+                if (!config) return;
+
+                createButton(group, config);
+            });
+
+            if (index === blocks.length - 1 && !this._btns[AnvilMode.Off]) {
+                createButton(group, MODE_CONFIGS.find(({ id }) => id === AnvilMode.Off)!);
             }
         });
 
-        const updateFn = (m: string | null) => {
+        const updateFn = (mode: string | null) => {
             for (const id in this._btns) {
-                const active = (id === m) || (id === AnvilMode.Off && !m);
-                this._btns[id].style.backgroundColor = active ? '#eee' : '#fff';
+                const active = (id === mode) || (id === AnvilMode.Off && !mode);
+                setButtonState(this._btns[id], active);
             }
         };
 

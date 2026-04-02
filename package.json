@@ -41,6 +41,7 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@turf/turf": "^7.3.4"
+    "@turf/turf": "^7.3.4",
+    "lucide": "^1.7.0"
   }
 }

@@ -3,6 +3,7 @@ import * as L from 'leaflet';
 import { DrawPolygonMode } from '../../modes/draw-polygon-mode';
 import { LayerStore } from '../../layers/layer-store';
 import { ANVIL_EVENTS } from '../../events';
+import { AnvilMode } from '../../types';
 import { createMap, fireMapClick, fireMapMouseMove } from '../helpers/leaflet-mock';
 
 describe('DrawPolygonMode', () => {
@@ -106,5 +107,35 @@ describe('DrawPolygonMode', () => {
         fireMapClick(map, 10.01, 10.01); // should snap to 10,10
         // No easy way to check internal state without spies,
         // focus remains on translation of descriptions.
+    });
+
+    it('allows mode-specific polygon styles to override global path options', () => {
+        mode.disable();
+
+        const styledMode = new DrawPolygonMode(map, {
+            pathOptions: { color: '#123456', fillColor: '#abcdef' },
+            modeStyles: {
+                [AnvilMode.Polygon]: {
+                    pathOptions: { color: '#ff6600', fillColor: '#fed7aa', fillOpacity: 0.6 },
+                },
+            },
+            snapDistance: 10,
+        }, store);
+        styledMode.enable();
+
+        const handler = vi.fn();
+        map.on(ANVIL_EVENTS.CREATED, handler);
+
+        fireMapClick(map, 0, 0);
+        fireMapClick(map, 1, 0);
+        fireMapClick(map, 0, 1);
+        fireMapClick(map, 0, 0);
+
+        const polygon = handler.mock.calls[0][0].layer as L.Polygon;
+        expect(polygon.options.color).toBe('#ff6600');
+        expect(polygon.options.fillColor).toBe('#fed7aa');
+        expect(polygon.options.fillOpacity).toBe(0.6);
+
+        styledMode.disable();
     });
 });

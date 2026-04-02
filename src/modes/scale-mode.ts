@@ -1,7 +1,9 @@
 import * as L from 'leaflet';
-import { Mode } from '../anvil';
+import { AnvilOptions, Mode } from '../anvil';
 import { LayerStore } from '../layers/layer-store';
 import { ANVIL_EVENTS } from '../events';
+import { AnvilMode } from '../types';
+import { getModeSelectionPathOptions } from '../utils/mode-styles';
 
 export class ScaleMode implements Mode {
     private selectedLayer: L.Layer | null = null;
@@ -9,8 +11,9 @@ export class ScaleMode implements Mode {
     private initialLatLngs: any = null;
     private initialRadius: number = 0;
     private initialDistance: number = 0;
+    private originalPathStyle: L.PathOptions | null = null;
 
-    constructor(private map: L.Map, private store: LayerStore, private options?: any) {
+    constructor(private map: L.Map, private store: LayerStore, private options: AnvilOptions = {}) {
     }
 
     enable(): void {
@@ -46,12 +49,22 @@ export class ScaleMode implements Mode {
         if (this.selectedLayer instanceof L.Circle) {
             this.centerLatLng = this.selectedLayer.getLatLng();
             this.initialRadius = this.selectedLayer.getRadius();
-        } else if (this.selectedLayer instanceof L.Path) {
-            const bounds = (this.selectedLayer as any).getBounds();
-            this.centerLatLng = bounds.getCenter();
-            this.initialLatLngs = JSON.parse(JSON.stringify((this.selectedLayer as any).getLatLngs()));
-            // Highlight
-            this.selectedLayer.setStyle({ weight: 4, color: '#ffcc00' });
+        }
+
+        if (this.selectedLayer instanceof L.Path) {
+            this.originalPathStyle = { ...this.selectedLayer.options };
+            this.selectedLayer.setStyle(
+                getModeSelectionPathOptions(this.options, AnvilMode.Scale, this.originalPathStyle, {
+                    weight: 4,
+                    color: '#ffcc00',
+                }),
+            );
+
+            if (!(this.selectedLayer instanceof L.Circle)) {
+                const bounds = (this.selectedLayer as any).getBounds();
+                this.centerLatLng = bounds.getCenter();
+                this.initialLatLngs = JSON.parse(JSON.stringify((this.selectedLayer as any).getLatLngs()));
+            }
         }
 
         if (this.centerLatLng) {
@@ -88,7 +101,7 @@ export class ScaleMode implements Mode {
     private onMouseUp(): void {
         if (this.selectedLayer) {
             if (this.selectedLayer instanceof L.Path) {
-                this.selectedLayer.setStyle({ weight: 3, color: '#3388ff' });
+                this.selectedLayer.setStyle(this.originalPathStyle || {});
             }
             this.map.fire(ANVIL_EVENTS.EDITED, { layer: this.selectedLayer });
         }
@@ -99,8 +112,12 @@ export class ScaleMode implements Mode {
         this.map.off('mousemove', this.onMouseMove, this);
         this.map.off('mouseup', this.onMouseUp, this);
         this.map.dragging.enable();
+        if (this.selectedLayer instanceof L.Path && this.originalPathStyle) {
+            this.selectedLayer.setStyle(this.originalPathStyle);
+        }
         this.selectedLayer = null;
         this.centerLatLng = null;
         this.initialLatLngs = null;
+        this.originalPathStyle = null;
     }
 }

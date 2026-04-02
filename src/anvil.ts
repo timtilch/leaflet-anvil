@@ -40,9 +40,20 @@ export interface AnvilOptions {
     pathOptions?: L.PathOptions;
     ghostPathOptions?: L.PathOptions;
     vertexOptions?: L.MarkerOptions;
+    modeStyles?: AnvilModeStyles;
     controlPosition?: L.ControlPosition;
     modes?: (AnvilMode | AnvilMode[])[];
 }
+
+export interface AnvilModeStyleOptions {
+    pathOptions?: L.PathOptions;
+    ghostPathOptions?: L.PathOptions;
+    vertexOptions?: L.MarkerOptions;
+    handleOptions?: L.CircleMarkerOptions;
+    selectionPathOptions?: L.PathOptions;
+}
+
+export type AnvilModeStyles = Partial<Record<AnvilMode, AnvilModeStyleOptions>>;
 
 export class Anvil {
     private modeManager: ModeManager;

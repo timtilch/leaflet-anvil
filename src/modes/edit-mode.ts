@@ -2,6 +2,8 @@ import * as L from 'leaflet';
 import { AnvilOptions, Mode } from '../anvil';
 import { ANVIL_EVENTS } from '../events';
 import { LayerStore } from '../layers/layer-store';
+import { AnvilMode } from '../types';
+import { getModeHandleOptions, getModeSelectionPathOptions } from '../utils/mode-styles';
 import { getSnapLatLng } from '../utils/snapping';
 import { isSelfIntersecting } from '../utils/geometry';
 
@@ -11,6 +13,7 @@ export class EditMode implements Mode {
     private ghostMarker: L.Marker | null = null;
     private segments: { p1: L.LatLng, p2: L.LatLng, refs: { layer: L.Path, path: number[] }[] }[] = [];
     private _isDragging = false;
+    private originalLayerStyles = new Map<L.Path, L.PathOptions>();
 
     constructor(
         private map: L.Map,
@@ -37,14 +40,11 @@ export class EditMode implements Mode {
                 layer.off('click', this.onLayerClick, this);
                 layer.off('mousemove', this.onMouseMove, this);
                 (layer.getElement() as HTMLElement)?.style.setProperty('cursor', '');
-                // Reset styles
-                if (layer instanceof L.Path) {
-                    layer.setStyle({ color: '#3388ff', weight: 3, fillOpacity: 0.2 });
-                }
             }
         });
         this.map.off('click', this.onMapClick, this);
         this.map.off('mousemove', this.onMouseMove, this);
+        this.restoreAllPathStyles();
         this.clearMarkers();
         this.activeLayers.clear();
     }
@@ -59,18 +59,14 @@ export class EditMode implements Mode {
             // Clear current selection if clicking a new layer and not multi-selecting
             if (this.activeLayers.has(layer) && this.activeLayers.size === 1) return;
 
-            // Reset styles of old selection
-            this.activeLayers.forEach(l => {
-                if (l instanceof L.Path) l.setStyle({ color: '#3388ff', weight: 3 });
-            });
-
+            this.restoreAllPathStyles();
             this.clearMarkers();
             this.activeLayers.clear();
             this.activeLayers.add(layer);
         } else {
             if (this.activeLayers.has(layer)) {
                 this.activeLayers.delete(layer);
-                if (layer instanceof L.Path) layer.setStyle({ color: '#3388ff', weight: 3 });
+                if (layer instanceof L.Path) this.restorePathStyle(layer);
             } else {
                 this.activeLayers.add(layer);
             }
@@ -79,13 +75,14 @@ export class EditMode implements Mode {
 
         // Highlight selection
         this.activeLayers.forEach(l => {
-            if (l instanceof L.Path) l.setStyle({ color: '#ff00ff', weight: 4 });
+            if (l instanceof L.Path) this.applySelectionStyle(l);
         });
 
         this.createMarkers();
     }
 
     private onMapClick(): void {
+        this.restoreAllPathStyles();
         this.clearMarkers();
         this.activeLayers.clear();
     }
@@ -258,6 +255,9 @@ export class EditMode implements Mode {
 
         layersToDelete.forEach(layer => {
             this.activeLayers.delete(layer);
+            if (layer instanceof L.Path) {
+                this.originalLayerStyles.delete(layer);
+            }
             this.map.removeLayer(layer);
             this.map.fire(ANVIL_EVENTS.DELETED, { layer: layer });
         });
@@ -310,14 +310,15 @@ export class EditMode implements Mode {
     }
 
     private createEditMarker(latlng: L.LatLng): L.Marker {
+        const visuals = this.getEditHandleVisuals();
         return L.marker(latlng, {
             draggable: true,
             zIndexOffset: 2000,
             icon: L.divIcon({
                 className: 'anvil-edit-marker',
-                html: '<div style="width: 12px; height: 12px; background: #fff; border: 2px solid #ff00ff; border-radius: 50%; box-sizing: border-box; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>',
-                iconSize: [12, 12],
-                iconAnchor: [6, 6],
+                html: this.createHandleHtml(visuals.size, visuals.fillColor, visuals.borderColor, visuals.borderWidth),
+                iconSize: [visuals.size, visuals.size],
+                iconAnchor: [visuals.size / 2, visuals.size / 2],
             }),
         }).addTo(this.map);
     }
@@ -332,15 +333,16 @@ export class EditMode implements Mode {
             return;
         }
 
+        const visuals = this.getGhostHandleVisuals();
         this.ghostMarker = L.marker(latlng, {
             draggable: true,
             opacity: 0.7,
             zIndexOffset: 3000,
             icon: L.divIcon({
                 className: 'anvil-ghost-marker',
-                html: '<div style="width: 10px; height: 10px; background: #ff00ff; border: 2px solid #fff; border-radius: 50%; box-sizing: border-box; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>',
-                iconSize: [10, 10],
-                iconAnchor: [5, 5],
+                html: this.createHandleHtml(visuals.size, visuals.fillColor, visuals.borderColor, visuals.borderWidth),
+                iconSize: [visuals.size, visuals.size],
+                iconAnchor: [visuals.size / 2, visuals.size / 2],
             }),
         }).addTo(this.map);
 
@@ -461,6 +463,7 @@ export class EditMode implements Mode {
             const mouseEvent = e as L.LeafletMouseEvent;
             L.DomEvent.stopPropagation(mouseEvent);
             this.activeLayers.delete(circle);
+            this.originalLayerStyles.delete(circle);
             this.map.removeLayer(circle);
             this.map.fire(ANVIL_EVENTS.DELETED, { layer: circle });
             this.refreshMarkers();
@@ -485,5 +488,73 @@ export class EditMode implements Mode {
     private refreshMarkers(): void {
         this.clearMarkers();
         this.createMarkers();
+    }
+
+    private applySelectionStyle(layer: L.Path): void {
+        if (!this.originalLayerStyles.has(layer)) {
+            this.originalLayerStyles.set(layer, { ...layer.options });
+        }
+
+        layer.setStyle(
+            getModeSelectionPathOptions(this.options, AnvilMode.Edit, this.originalLayerStyles.get(layer) || {}, {
+                color: '#ff00ff',
+                weight: 4,
+            }),
+        );
+    }
+
+    private restorePathStyle(layer: L.Path): void {
+        const original = this.originalLayerStyles.get(layer);
+        if (!original) return;
+
+        layer.setStyle(original);
+        this.originalLayerStyles.delete(layer);
+    }
+
+    private restoreAllPathStyles(): void {
+        this.originalLayerStyles.forEach((style, layer) => {
+            layer.setStyle(style);
+        });
+        this.originalLayerStyles.clear();
+    }
+
+    private getEditHandleVisuals(): { size: number; fillColor: string; borderColor: string; borderWidth: number } {
+        const selection = getModeSelectionPathOptions(this.options, AnvilMode.Edit, {}, { color: '#ff00ff' });
+        const handle = getModeHandleOptions(this.options, AnvilMode.Edit, {
+            radius: 6,
+            color: (selection.color as string | undefined) || '#ff00ff',
+            fillColor: '#fff',
+            fillOpacity: 1,
+            weight: 2,
+        });
+
+        return {
+            size: ((handle.radius as number | undefined) || 6) * 2,
+            fillColor: (handle.fillColor as string | undefined) || '#fff',
+            borderColor: (handle.color as string | undefined) || ((selection.color as string | undefined) || '#ff00ff'),
+            borderWidth: (handle.weight as number | undefined) || 2,
+        };
+    }
+
+    private getGhostHandleVisuals(): { size: number; fillColor: string; borderColor: string; borderWidth: number } {
+        const selection = getModeSelectionPathOptions(this.options, AnvilMode.Edit, {}, { color: '#ff00ff' });
+        const handle = getModeHandleOptions(this.options, AnvilMode.Edit, {
+            radius: 5,
+            color: '#fff',
+            fillColor: (selection.color as string | undefined) || '#ff00ff',
+            fillOpacity: 1,
+            weight: 2,
+        });
+
+        return {
+            size: ((handle.radius as number | undefined) || 5) * 2,
+            fillColor: (handle.fillColor as string | undefined) || ((selection.color as string | undefined) || '#ff00ff'),
+            borderColor: (handle.color as string | undefined) || '#fff',
+            borderWidth: (handle.weight as number | undefined) || 2,
+        };
+    }
+
+    private createHandleHtml(size: number, fillColor: string, borderColor: string, borderWidth: number): string {
+        return `<div style="width: ${size}px; height: ${size}px; background: ${fillColor}; border: ${borderWidth}px solid ${borderColor}; border-radius: 50%; box-sizing: border-box; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>`;
     }
 }

@@ -2,6 +2,8 @@ import * as L from 'leaflet';
 import { AnvilOptions, Mode } from '../anvil';
 import { ANVIL_EVENTS } from '../events';
 import { LayerStore } from '../layers/layer-store';
+import { AnvilMode } from '../types';
+import { getModeGhostPathOptions, getModePathOptions } from '../utils/mode-styles';
 import { getSnapLatLng } from '../utils/snapping';
 import { causesSelfIntersection } from '../utils/geometry';
 
@@ -57,11 +59,14 @@ export class DrawPolylineMode implements Mode {
             : e.latlng;
         const lastPoint = this.points[this.points.length - 1];
         if (!this.ghostLine) {
-            this.ghostLine = L.polyline([lastPoint, e.latlng], {
-                dashArray: '5, 5',
-                color: '#3388ff',
-                weight: 2,
-            }).addTo(this.map);
+            this.ghostLine = L.polyline(
+                [lastPoint, e.latlng],
+                getModeGhostPathOptions(this.options, AnvilMode.Polyline, {
+                    dashArray: '5, 5',
+                    color: '#3388ff',
+                    weight: 2,
+                }),
+            ).addTo(this.map);
         } else {
             this.ghostLine.setLatLngs([lastPoint, snapLatLng]);
         }
@@ -84,13 +89,19 @@ export class DrawPolylineMode implements Mode {
         if (this.polyline) {
             this.polyline.setLatLngs(this.points);
         } else {
-            this.polyline = L.polyline(this.points, { color: '#3388ff' }).addTo(this.map);
+            this.polyline = L.polyline(
+                this.points,
+                getModePathOptions(this.options, AnvilMode.Polyline, { color: '#3388ff' }),
+            ).addTo(this.map);
         }
     }
 
     private finish(): void {
         if (this.points.length < 2) return;
-        const polyline = L.polyline(this.points).addTo(this.map);
+        const polyline = L.polyline(
+            this.points,
+            getModePathOptions(this.options, AnvilMode.Polyline),
+        ).addTo(this.map);
         this.map.fire(ANVIL_EVENTS.CREATED, { layer: polyline });
         this.reset();
     }

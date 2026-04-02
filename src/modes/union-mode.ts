@@ -3,9 +3,12 @@ import * as turf from '@turf/turf';
 import { AnvilOptions, Mode } from '../anvil';
 import { LayerStore } from '../layers/layer-store';
 import { ANVIL_EVENTS } from '../events';
+import { AnvilMode } from '../types';
+import { getModePathOptions, getModeSelectionPathOptions } from '../utils/mode-styles';
 
 export class UnionMode implements Mode {
     private firstLayer: L.Polygon | null = null;
+    private firstLayerStyle: L.PathOptions | null = null;
 
     constructor(
         private map: L.Map,
@@ -39,7 +42,13 @@ export class UnionMode implements Mode {
 
         if (!this.firstLayer) {
             this.firstLayer = layer;
-            this.firstLayer.setStyle({ color: '#ff00ff', weight: 4 });
+            this.firstLayerStyle = { ...layer.options };
+            this.firstLayer.setStyle(
+                getModeSelectionPathOptions(this.options, AnvilMode.Union, this.firstLayerStyle, {
+                    color: '#ff00ff',
+                    weight: 4,
+                }),
+            );
             return;
         }
 
@@ -70,7 +79,7 @@ export class UnionMode implements Mode {
         const flattened = turf.flatten(united);
         flattened.features.forEach(f => {
             const newLayerGroup = L.geoJSON(f, {
-                style: this.options.pathOptions
+                style: getModePathOptions(this.options, AnvilMode.Union),
             });
             const l = newLayerGroup.getLayers()[0] as L.Polygon;
             l.addTo(this.map);
@@ -78,12 +87,14 @@ export class UnionMode implements Mode {
         });
 
         this.firstLayer = null;
+        this.firstLayerStyle = null;
     }
 
     private reset(): void {
         if (this.firstLayer) {
-            this.firstLayer.setStyle({ color: '#3388ff', weight: 3, ...this.options.pathOptions });
+            this.firstLayer.setStyle(this.firstLayerStyle || {});
             this.firstLayer = null;
+            this.firstLayerStyle = null;
         }
     }
 }
