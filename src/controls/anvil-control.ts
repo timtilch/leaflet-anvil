@@ -22,31 +22,39 @@ import {
     type IconNode,
 } from 'lucide';
 import { AnvilMode } from '../types';
-import { Anvil } from '../anvil';
+import { Anvil, type AnvilModeTooltipResolver, type AnvilModeTooltips } from '../anvil';
 import { ANVIL_EVENTS } from '../events';
 
 const ANVIL_TOOLBAR_STYLE_ID = 'anvil-toolbar-styles';
 
-const MODE_CONFIGS: Array<{ id: AnvilMode; title: string; icon: IconNode }> = [
-    { id: AnvilMode.Marker, title: 'Marker', icon: MapPin },
-    { id: AnvilMode.Polyline, title: 'Line', icon: Waypoints },
-    { id: AnvilMode.Polygon, title: 'Polygon', icon: Pentagon },
-    { id: AnvilMode.Rectangle, title: 'Rectangle', icon: RectangleHorizontal },
-    { id: AnvilMode.Square, title: 'Square', icon: Square },
-    { id: AnvilMode.Triangle, title: 'Triangle', icon: Triangle },
-    { id: AnvilMode.Circle, title: 'Circle', icon: Circle },
-    { id: AnvilMode.Freehand, title: 'Freehand', icon: Hand },
-    { id: AnvilMode.Cut, title: 'Cut', icon: Scissors },
-    { id: AnvilMode.Split, title: 'Split', icon: Split },
-    { id: AnvilMode.Union, title: 'Union', icon: SquaresUnite },
-    { id: AnvilMode.Subtract, title: 'Subtract', icon: SquaresSubtract },
-    { id: AnvilMode.Drag, title: 'Drag', icon: Move },
-    { id: AnvilMode.Scale, title: 'Scale', icon: Scaling },
-    { id: AnvilMode.Rotate, title: 'Rotate', icon: RotateCw },
-    { id: AnvilMode.Edit, title: 'Edit', icon: SquarePen },
-    { id: AnvilMode.Delete, title: 'Delete', icon: Trash2 },
-    { id: AnvilMode.Off, title: 'Turn Off', icon: Power },
+type ModeConfig = {
+    id: AnvilMode;
+    defaultTooltip: string;
+    icon: IconNode;
+};
+
+const MODE_CONFIGS: ModeConfig[] = [
+    { id: AnvilMode.Marker, defaultTooltip: 'Marker', icon: MapPin },
+    { id: AnvilMode.Polyline, defaultTooltip: 'Line', icon: Waypoints },
+    { id: AnvilMode.Polygon, defaultTooltip: 'Polygon', icon: Pentagon },
+    { id: AnvilMode.Rectangle, defaultTooltip: 'Rectangle', icon: RectangleHorizontal },
+    { id: AnvilMode.Square, defaultTooltip: 'Square', icon: Square },
+    { id: AnvilMode.Triangle, defaultTooltip: 'Triangle', icon: Triangle },
+    { id: AnvilMode.Circle, defaultTooltip: 'Circle', icon: Circle },
+    { id: AnvilMode.Freehand, defaultTooltip: 'Freehand', icon: Hand },
+    { id: AnvilMode.Cut, defaultTooltip: 'Cut', icon: Scissors },
+    { id: AnvilMode.Split, defaultTooltip: 'Split', icon: Split },
+    { id: AnvilMode.Union, defaultTooltip: 'Union', icon: SquaresUnite },
+    { id: AnvilMode.Subtract, defaultTooltip: 'Subtract', icon: SquaresSubtract },
+    { id: AnvilMode.Drag, defaultTooltip: 'Drag', icon: Move },
+    { id: AnvilMode.Scale, defaultTooltip: 'Scale', icon: Scaling },
+    { id: AnvilMode.Rotate, defaultTooltip: 'Rotate', icon: RotateCw },
+    { id: AnvilMode.Edit, defaultTooltip: 'Edit', icon: SquarePen },
+    { id: AnvilMode.Delete, defaultTooltip: 'Delete', icon: Trash2 },
+    { id: AnvilMode.Off, defaultTooltip: 'Turn Off', icon: Power },
 ];
+
+const MODE_CONFIGS_BY_ID = new Map(MODE_CONFIGS.map(config => [config.id, config] as const));
 
 function ensureToolbarStyles(): void {
     if (typeof document === 'undefined' || document.getElementById(ANVIL_TOOLBAR_STYLE_ID)) return;
@@ -125,6 +133,18 @@ function buildIcon(iconNode: IconNode): SVGElement {
 export interface AnvilControlOptions extends L.ControlOptions {
     position?: L.ControlPosition;
     modes?: (AnvilMode | AnvilMode[])[];
+    modeTooltips?: AnvilModeTooltips | AnvilModeTooltipResolver;
+}
+
+function resolveModeTooltip(
+    config: ModeConfig,
+    modeTooltips?: AnvilModeTooltips | AnvilModeTooltipResolver,
+): string {
+    if (typeof modeTooltips === 'function') {
+        return modeTooltips(config.id, config.defaultTooltip) ?? config.defaultTooltip;
+    }
+
+    return modeTooltips?.[config.id] ?? config.defaultTooltip;
 }
 
 export class AnvilControl extends L.Control {
@@ -147,15 +167,22 @@ export class AnvilControl extends L.Control {
             ? modesInput as AnvilMode[][]
             : [modesInput as AnvilMode[]];
 
-        const createButton = (group: HTMLElement, config: { id: AnvilMode; title: string; icon: IconNode }): void => {
+        const createButton = (group: HTMLElement, config: ModeConfig): void => {
             const btn = L.DomUtil.create('a', 'anvil-control-btn', group);
             btn.href = '#';
-            btn.title = config.title;
             btn.setAttribute('role', 'button');
-            btn.setAttribute('aria-label', config.title);
             btn.appendChild(buildIcon(config.icon));
 
+            const syncTooltip = (): void => {
+                const tooltip = resolveModeTooltip(config, this._options.modeTooltips);
+                btn.title = tooltip;
+                btn.setAttribute('aria-label', tooltip);
+            };
+
+            syncTooltip();
+
             L.DomEvent.disableClickPropagation(btn);
+            L.DomEvent.on(btn, 'mouseover focus', syncTooltip);
             L.DomEvent.on(btn, 'click', (e) => {
                 L.DomEvent.preventDefault(e);
                 if (config.id === AnvilMode.Off) {
@@ -172,14 +199,14 @@ export class AnvilControl extends L.Control {
             const group = L.DomUtil.create('div', 'leaflet-bar anvil-toolbar-group', container);
 
             block.forEach(modeId => {
-                const config = MODE_CONFIGS.find(({ id }) => id === modeId);
+                const config = MODE_CONFIGS_BY_ID.get(modeId);
                 if (!config) return;
 
                 createButton(group, config);
             });
 
             if (index === blocks.length - 1 && !this._btns[AnvilMode.Off]) {
-                createButton(group, MODE_CONFIGS.find(({ id }) => id === AnvilMode.Off)!);
+                createButton(group, MODE_CONFIGS_BY_ID.get(AnvilMode.Off)!);
             }
         });
 
