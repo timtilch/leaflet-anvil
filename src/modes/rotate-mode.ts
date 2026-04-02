@@ -1,15 +1,18 @@
 import * as L from 'leaflet';
-import { Mode } from '../anvil';
+import { AnvilOptions, Mode } from '../anvil';
 import { LayerStore } from '../layers/layer-store';
 import { ANVIL_EVENTS } from '../events';
+import { AnvilMode } from '../types';
+import { getModeSelectionPathOptions } from '../utils/mode-styles';
 
 export class RotateMode implements Mode {
     private selectedLayer: L.Path | null = null;
     private centerLatLng: L.LatLng | null = null;
     private initialLatLngs: any = null;
     private startAngle: number = 0;
+    private originalPathStyle: L.PathOptions | null = null;
 
-    constructor(private map: L.Map, private store: LayerStore, private options?: any) {
+    constructor(private map: L.Map, private store: LayerStore, private options: AnvilOptions = {}) {
     }
 
     enable(): void {
@@ -44,12 +47,18 @@ export class RotateMode implements Mode {
         const bounds = (pathLayer as any).getBounds();
         this.centerLatLng = bounds.getCenter();
         this.initialLatLngs = JSON.parse(JSON.stringify((pathLayer as any).getLatLngs()));
+        this.originalPathStyle = { ...pathLayer.options };
 
         const point = this.map.latLngToContainerPoint(e.latlng);
         const centerPoint = this.map.latLngToContainerPoint(this.centerLatLng!);
         this.startAngle = Math.atan2(point.y - centerPoint.y, point.x - centerPoint.x);
 
-        pathLayer.setStyle({ weight: 4, color: '#ffcc00' });
+        pathLayer.setStyle(
+            getModeSelectionPathOptions(this.options, AnvilMode.Rotate, this.originalPathStyle, {
+                weight: 4,
+                color: '#ffcc00',
+            }),
+        );
 
         this.map.on('mousemove', this.onMouseMove, this);
         this.map.on('mouseup', this.onMouseUp, this);
@@ -90,7 +99,7 @@ export class RotateMode implements Mode {
 
     private onMouseUp(): void {
         if (this.selectedLayer) {
-            this.selectedLayer.setStyle({ weight: 3, color: '#3388ff' });
+            this.selectedLayer.setStyle(this.originalPathStyle || {});
             this.map.fire(ANVIL_EVENTS.EDITED, { layer: this.selectedLayer });
         }
         this.stopRotating();
@@ -100,8 +109,12 @@ export class RotateMode implements Mode {
         this.map.off('mousemove', this.onMouseMove, this);
         this.map.off('mouseup', this.onMouseUp, this);
         this.map.dragging.enable();
+        if (this.selectedLayer && this.originalPathStyle) {
+            this.selectedLayer.setStyle(this.originalPathStyle);
+        }
         this.selectedLayer = null;
         this.centerLatLng = null;
         this.initialLatLngs = null;
+        this.originalPathStyle = null;
     }
 }

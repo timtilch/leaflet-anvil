@@ -2,6 +2,8 @@ import * as L from 'leaflet';
 import { AnvilOptions, Mode } from '../anvil';
 import { LayerStore } from '../layers/layer-store';
 import { ANVIL_EVENTS } from '../events';
+import { AnvilMode } from '../types';
+import { getModeSelectionPathOptions } from '../utils/mode-styles';
 import { getSnapLatLng } from '../utils/snapping';
 
 export class DragMode implements Mode {
@@ -9,6 +11,7 @@ export class DragMode implements Mode {
     private draggingLayer: L.Layer | null = null;
     private startLatLng: L.LatLng | null = null;
     private initialLatLngs: any = null;
+    private originalPathStyle: L.PathOptions | null = null;
 
     constructor(
         private map: L.Map,
@@ -71,8 +74,13 @@ export class DragMode implements Mode {
             } else if (this.draggingLayer instanceof L.Polyline) {
                 this.initialLatLngs = JSON.parse(JSON.stringify(this.draggingLayer.getLatLngs()));
             }
-            // Highlight
-            this.draggingLayer.setStyle({ weight: 4, color: '#ffcc00' });
+            this.originalPathStyle = { ...this.draggingLayer.options };
+            this.draggingLayer.setStyle(
+                getModeSelectionPathOptions(this.options, AnvilMode.Drag, this.originalPathStyle, {
+                    weight: 4,
+                    color: '#ffcc00',
+                }),
+            );
         }
 
         this.map.on('mousemove', this.onMouseMove, this);
@@ -115,7 +123,7 @@ export class DragMode implements Mode {
     private onMouseUp(): void {
         if (this.draggingLayer) {
             if (this.draggingLayer instanceof L.Path) {
-                this.draggingLayer.setStyle({ weight: 3, color: '#3388ff' });
+                this.draggingLayer.setStyle(this.originalPathStyle || {});
             }
             this.map.fire(ANVIL_EVENTS.EDITED, { layer: this.draggingLayer });
         }
@@ -126,8 +134,12 @@ export class DragMode implements Mode {
         this.map.off('mousemove', this.onMouseMove, this);
         this.map.off('mouseup', this.onMouseUp, this);
         this.map.dragging.enable();
+        if (this.draggingLayer instanceof L.Path && this.originalPathStyle) {
+            this.draggingLayer.setStyle(this.originalPathStyle);
+        }
         this.draggingLayer = null;
         this.startLatLng = null;
         this.initialLatLngs = null;
+        this.originalPathStyle = null;
     }
 }

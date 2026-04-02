@@ -2,6 +2,8 @@ import * as L from 'leaflet';
 import { AnvilOptions, Mode } from '../anvil';
 import { ANVIL_EVENTS } from '../events';
 import { LayerStore } from '../layers/layer-store';
+import { AnvilMode } from '../types';
+import { getModeGhostPathOptions, getModePathOptions } from '../utils/mode-styles';
 import { getSnapLatLng } from '../utils/snapping';
 
 export class DrawTriangleMode implements Mode {
@@ -43,7 +45,13 @@ export class DrawTriangleMode implements Mode {
         const trianglePoints = this.getTrianglePoints(this.startLatLng, currentLatLng);
 
         if (!this.ghostTriangle) {
-            this.ghostTriangle = L.polygon(trianglePoints, { color: '#3388ff', weight: 2 }).addTo(this.map);
+            this.ghostTriangle = L.polygon(
+                trianglePoints,
+                getModeGhostPathOptions(this.options, AnvilMode.Triangle, {
+                    color: '#3388ff',
+                    weight: 2,
+                }),
+            ).addTo(this.map);
         } else {
             this.ghostTriangle.setLatLngs(trianglePoints);
         }
@@ -55,7 +63,10 @@ export class DrawTriangleMode implements Mode {
         const currentLatLng = this.store ? getSnapLatLng(this.map, e.latlng, this.store, this.options) : e.latlng;
         const trianglePoints = this.getTrianglePoints(this.startLatLng, currentLatLng);
 
-        const polygon = L.polygon(trianglePoints).addTo(this.map);
+        const polygon = L.polygon(
+            trianglePoints,
+            getModePathOptions(this.options, AnvilMode.Triangle),
+        ).addTo(this.map);
 
         this.map.fire(ANVIL_EVENTS.CREATED, { layer: polygon });
         this.reset();

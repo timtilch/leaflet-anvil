@@ -2,6 +2,8 @@ import * as L from 'leaflet';
 import { AnvilOptions, Mode } from '../anvil';
 import { ANVIL_EVENTS } from '../events';
 import { LayerStore } from '../layers/layer-store';
+import { AnvilMode } from '../types';
+import { getModeGhostPathOptions, getModePathOptions } from '../utils/mode-styles';
 import { getSnapLatLng } from '../utils/snapping';
 
 export class DrawRectangleMode implements Mode {
@@ -42,7 +44,13 @@ export class DrawRectangleMode implements Mode {
         const currentLatLng = this.store ? getSnapLatLng(this.map, e.latlng, this.store, this.options) : e.latlng;
         const bounds = L.latLngBounds(this.startLatLng, currentLatLng);
         if (!this.rectangle) {
-            this.rectangle = L.rectangle(bounds, { color: '#3388ff', weight: 2 }).addTo(this.map);
+            this.rectangle = L.rectangle(
+                bounds,
+                getModeGhostPathOptions(this.options, AnvilMode.Rectangle, {
+                    color: '#3388ff',
+                    weight: 2,
+                }),
+            ).addTo(this.map);
         } else {
             this.rectangle.setBounds(bounds);
         }
@@ -53,7 +61,10 @@ export class DrawRectangleMode implements Mode {
 
         const currentLatLng = this.store ? getSnapLatLng(this.map, e.latlng, this.store, this.options) : e.latlng;
         const bounds = L.latLngBounds(this.startLatLng, currentLatLng);
-        const rectangle = L.rectangle(bounds).addTo(this.map);
+        const rectangle = L.rectangle(
+            bounds,
+            getModePathOptions(this.options, AnvilMode.Rectangle),
+        ).addTo(this.map);
         this.map.fire(ANVIL_EVENTS.CREATED, { layer: rectangle });
         this.reset();
     }

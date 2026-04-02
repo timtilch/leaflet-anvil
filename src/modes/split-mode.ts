@@ -3,11 +3,13 @@ import * as turf from '@turf/turf';
 import { AnvilOptions, Mode } from '../anvil';
 import { LayerStore } from '../layers/layer-store';
 import { ANVIL_EVENTS } from '../events';
+import { AnvilMode } from '../types';
+import { getModeGhostPathOptions, getModeHandleOptions, getModePathOptions } from '../utils/mode-styles';
 import { getSnapLatLng } from '../utils/snapping';
 
 export class SplitMode implements Mode {
     private points: L.LatLng[] = [];
-    private markers: L.Marker[] = [];
+    private markers: L.CircleMarker[] = [];
     private polyline: L.Polyline | null = null;
     private ghostLine: L.Polyline | null = null;
 
@@ -57,11 +59,14 @@ export class SplitMode implements Mode {
         const snapLatLng = getSnapLatLng(this.map, e.latlng, this.store, this.options, this.points);
         const lastPoint = this.points[this.points.length - 1];
         if (!this.ghostLine) {
-            this.ghostLine = L.polyline([lastPoint, snapLatLng], {
-                dashArray: '5, 5',
-                color: '#ff3300',
-                weight: 2,
-            }).addTo(this.map);
+            this.ghostLine = L.polyline(
+                [lastPoint, snapLatLng],
+                getModeGhostPathOptions(this.options, AnvilMode.Split, {
+                    dashArray: '5, 5',
+                    color: '#ff3300',
+                    weight: 2,
+                }),
+            ).addTo(this.map);
         } else {
             this.ghostLine.setLatLngs([lastPoint, snapLatLng]);
         }
@@ -77,20 +82,25 @@ export class SplitMode implements Mode {
         if (this.polyline) {
             this.polyline.setLatLngs(this.points);
         } else {
-            this.polyline = L.polyline(this.points, { color: '#ff3300', weight: 3 }).addTo(this.map);
+            this.polyline = L.polyline(
+                this.points,
+                getModePathOptions(this.options, AnvilMode.Split, {
+                    color: '#ff3300',
+                    weight: 3,
+                }),
+            ).addTo(this.map);
         }
 
         // Add/move finish marker on the last point
         const lastPoint = this.points[this.points.length - 1];
         if (this.markers.length === 0) {
-            const marker = L.marker(lastPoint, {
-                icon: L.divIcon({
-                    className: 'anvil-split-finish',
-                    html: '<div style="width: 10px; height: 10px; background: #ff3300; border: 2px solid white; border-radius: 50%;"></div>',
-                    iconSize: [10, 10],
-                    iconAnchor: [5, 5],
+            const marker = L.circleMarker(
+                lastPoint,
+                getModeHandleOptions(this.options, AnvilMode.Split, {
+                    radius: 5,
+                    color: '#ff3300',
                 }),
-            }).addTo(this.map);
+            ).addTo(this.map);
             marker.on('click', (e) => {
                 L.DomEvent.stopPropagation(e);
                 this.finish();
@@ -163,7 +173,9 @@ export class SplitMode implements Mode {
                 const processResult = (result: any) => {
                     const flattened = turf.flatten(result);
                     flattened.features.forEach(f => {
-                        const l = L.geoJSON(f).getLayers()[0] as L.Polygon;
+                        const l = L.geoJSON(f, {
+                            style: getModePathOptions(this.options, AnvilMode.Split),
+                        }).getLayers()[0] as L.Polygon;
                         l.addTo(this.map);
                         this.map.fire(ANVIL_EVENTS.CREATED, { layer: l });
                     });

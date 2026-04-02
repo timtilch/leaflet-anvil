@@ -2,6 +2,8 @@ import * as L from 'leaflet';
 import { AnvilOptions, Mode } from '../anvil';
 import { ANVIL_EVENTS } from '../events';
 import { LayerStore } from '../layers/layer-store';
+import { AnvilMode } from '../types';
+import { getModeGhostPathOptions, getModePathOptions } from '../utils/mode-styles';
 import { getSnapLatLng } from '../utils/snapping';
 
 export class DrawCircleMode implements Mode {
@@ -42,7 +44,13 @@ export class DrawCircleMode implements Mode {
         const currentLatLng = this.store ? getSnapLatLng(this.map, e.latlng, this.store, this.options) : e.latlng;
         const radius = this.map.distance(this.centerLatLng, currentLatLng);
         if (!this.circle) {
-            this.circle = L.circle(this.centerLatLng, { radius, color: '#3388ff', weight: 2 }).addTo(this.map);
+            this.circle = L.circle(this.centerLatLng, {
+                radius,
+                ...getModeGhostPathOptions(this.options, AnvilMode.Circle, {
+                    color: '#3388ff',
+                    weight: 2,
+                }),
+            }).addTo(this.map);
         } else {
             this.circle.setRadius(radius);
         }
@@ -53,7 +61,10 @@ export class DrawCircleMode implements Mode {
 
         const currentLatLng = this.store ? getSnapLatLng(this.map, e.latlng, this.store, this.options) : e.latlng;
         const radius = this.map.distance(this.centerLatLng, currentLatLng);
-        const circle = L.circle(this.centerLatLng, { radius }).addTo(this.map);
+        const circle = L.circle(this.centerLatLng, {
+            radius,
+            ...getModePathOptions(this.options, AnvilMode.Circle),
+        }).addTo(this.map);
         this.map.fire(ANVIL_EVENTS.CREATED, { layer: circle });
         this.reset();
     }

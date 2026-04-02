@@ -3,6 +3,7 @@ import * as L from 'leaflet';
 import { UnionMode } from '../../modes/union-mode';
 import { LayerStore } from '../../layers/layer-store';
 import { ANVIL_EVENTS } from '../../events';
+import { AnvilMode } from '../../types';
 import { createMap, fireLayerClick } from '../helpers/leaflet-mock';
 
 // Two overlapping polygons
@@ -85,5 +86,34 @@ describe('UnionMode', () => {
         // Clicking p1 again should be treated as the new FIRST click
         fireLayerClick(p1, 0, 0);
         expect(createdHandler).not.toHaveBeenCalled();
+    });
+
+    it('uses selectionPathOptions for the first selected polygon', () => {
+        const polygon = L.polygon(poly1Coords, {
+            color: '#123456',
+            weight: 2,
+        }).addTo(map);
+        store.addLayer(polygon);
+
+        const styledMode = new UnionMode(map, store, {
+            modeStyles: {
+                [AnvilMode.Union]: {
+                    selectionPathOptions: {
+                        color: '#c026d3',
+                        weight: 6,
+                    },
+                },
+            },
+        });
+        styledMode.enable();
+
+        fireLayerClick(polygon, 1, 1);
+
+        expect(polygon.options.color).toBe('#c026d3');
+        expect(polygon.options.weight).toBe(6);
+
+        styledMode.disable();
+        expect(polygon.options.color).toBe('#123456');
+        expect(polygon.options.weight).toBe(2);
     });
 });

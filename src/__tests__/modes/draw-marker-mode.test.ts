@@ -3,6 +3,7 @@ import * as L from 'leaflet';
 import { DrawMarkerMode } from '../../modes/draw-marker-mode';
 import { LayerStore } from '../../layers/layer-store';
 import { ANVIL_EVENTS } from '../../events';
+import { AnvilMode } from '../../types';
 import { createMap, fireMapClick } from '../helpers/leaflet-mock';
 
 describe('DrawMarkerMode', () => {
@@ -69,6 +70,30 @@ describe('DrawMarkerMode', () => {
 
         const marker = handler.mock.calls[0][0].layer as L.Marker;
         expect(marker.options.title).toBe(title);
+
+        modeWithOptions.disable();
+    });
+
+    it('allows mode-specific marker styles to override global marker options', () => {
+        const modeWithOptions = new DrawMarkerMode(map, {
+            vertexOptions: { title: 'Global Title', keyboard: false },
+            modeStyles: {
+                [AnvilMode.Marker]: {
+                    vertexOptions: { title: 'Mode Title', riseOnHover: true },
+                },
+            },
+        }, store);
+        modeWithOptions.enable();
+
+        const handler = vi.fn();
+        map.on(ANVIL_EVENTS.CREATED, handler);
+
+        fireMapClick(map, 0, 0);
+
+        const marker = handler.mock.calls[0][0].layer as L.Marker;
+        expect(marker.options.title).toBe('Mode Title');
+        expect(marker.options.keyboard).toBe(false);
+        expect(marker.options.riseOnHover).toBe(true);
 
         modeWithOptions.disable();
     });
