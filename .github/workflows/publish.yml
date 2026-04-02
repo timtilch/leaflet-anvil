@@ -21,13 +21,6 @@ jobs:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Sync package version from tag
-        env:
-          GIT_TAG: ${{ github.ref_name }}
-        run: |
-          VERSION="${GIT_TAG#v}"
-          npm version "$VERSION" --no-git-tag-version --allow-same-version
-
       - name: Install dependencies
         run: npm ci
 
