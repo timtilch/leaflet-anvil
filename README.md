@@ -14,7 +14,7 @@ TypeScript features, and support for complex geometric operations like Union and
     - `Union`: Merge two polygons into one.
     - `Subtract`: Subtract one polygon from another.
     - `Cut` & `Split`: Cut lines or split areas.
-- **Smart Helpers**: Snapping to existing points and Magnetic mode.
+- **Smart Helpers**: Snapping to existing points, topology-aware splitting, and shared-vertex pinning while editing.
 - **Event-driven**: Easy integration through a consistent event system.
 
 ## Installation
@@ -38,7 +38,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 const anvil = new Anvil(map, {
     snapping: true,
     snapDistance: 15,
-    magnetic: true,
     preventSelfIntersection: true,
     controlPosition: 'topleft',
     modes: [
@@ -86,7 +85,6 @@ Activation via `anvil.enable(AnvilMode.Name)` or through the UI toolbar:
 |:--------------------------|:----------|:------------|:---------------------------------------------------------------------------------------------------------------------|
 | `snapping`                | `boolean` | `false`     | **Snapping:** If `true`, new points automatically snap to existing vertices of other geometries.                     |
 | `snapDistance`            | `number`  | `10`        | **Snap Distance:** Determines the distance in pixels at which a point "jumps" to the nearest existing vertex.        |
-| `magnetic`                | `boolean` | `false`     | **Magnetism:** Enhances snapping behavior. Points are actively attracted once they enter the radius.                 |
 | `preventSelfIntersection` | `boolean` | `false`     | **Validation:** Prevents edges from self-intersecting in polygons and lines. Blocks invalid segments during drawing. |
 | `pathOptions`             | `object`  | `Leaflet`   | Global fallback styles for path-based layers such as polygons, lines, rectangles and circles.                        |
 | `ghostPathOptions`        | `object`  | `Inherited` | Global fallback styles for temporary preview geometry while drawing.                                                  |

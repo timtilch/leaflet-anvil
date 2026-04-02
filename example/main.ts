@@ -1,5 +1,5 @@
 import * as L from 'leaflet';
-import { ANVIL_EVENTS, Anvil, AnvilMode } from '../src';
+import { Anvil, ANVIL_EVENTS, AnvilMode } from '../src';
 import 'leaflet/dist/leaflet.css';
 
 const map = L.map('map').setView([51.505, -0.09], 13);
@@ -146,7 +146,6 @@ const anvil = new Anvil(map, {
     layerGroup: demoLayers,
     snapping: true,
     snapDistance: 15,
-    magnetic: true,
     preventSelfIntersection: true,
     controlPosition: 'topleft',
     pathOptions: {

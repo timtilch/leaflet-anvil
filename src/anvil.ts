@@ -40,7 +40,6 @@ export interface AnvilOptions {
     layerGroup?: L.FeatureGroup;
     snapping?: boolean;
     snapDistance?: number;
-    magnetic?: boolean;
     freehandTolerance?: number;
     preventSelfIntersection?: boolean;
     pathOptions?: L.PathOptions;

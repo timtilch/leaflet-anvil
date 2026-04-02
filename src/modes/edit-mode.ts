@@ -53,7 +53,7 @@ export class EditMode implements Mode {
         L.DomEvent.stopPropagation(e);
         const layer = e.target as L.Layer;
 
-        const isMultiSelect = e.originalEvent.shiftKey || this.options.magnetic;
+        const isMultiSelect = e.originalEvent.shiftKey;
 
         if (!isMultiSelect) {
             // Clear current selection if clicking a new layer and not multi-selecting

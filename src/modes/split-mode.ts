@@ -118,7 +118,6 @@ export class SplitMode implements Mode {
         }
 
         const lineGeo = L.polyline(this.points).toGeoJSON();
-        const coords = turf.getCoords(lineGeo) as number[][];
         const layersToSplit: L.Polygon[] = [];
 
         // Find all polygons that intersect with our line
@@ -137,59 +136,71 @@ export class SplitMode implements Mode {
             return;
         }
 
-        // Prepare the "blade" from the first and last points of the line
-        const p1 = coords[0];
-        const p2 = coords[coords.length - 1];
-
-        const dx = p2[0] - p1[0];
-        const dy = p2[1] - p1[1];
-        const factor = 1000;
-        const start = [p1[0] - dx * factor, p1[1] - dy * factor];
-        const end = [p2[0] + dx * factor, p2[1] + dy * factor];
-        const angle = Math.atan2(dy, dx);
-        const perp = angle + Math.PI / 2;
-        const width = 1000;
-
-        const blade = turf.polygon([[
-            start,
-            end,
-            [end[0] + Math.cos(perp) * width, end[1] + Math.sin(perp) * width],
-            [start[0] + Math.cos(perp) * width, start[1] + Math.sin(perp) * width],
-            start,
-        ]]);
-
         layersToSplit.forEach(polygon => {
             const polyGeo = polygon.toGeoJSON();
 
-            if (this.options.magnetic) {
-                const intersections = turf.lineIntersect(lineGeo as any, polyGeo as any);
-                this.insertVerticesIntoNeighbors(intersections, polygon);
-            }
+            const intersections = turf.lineIntersect(lineGeo as any, polyGeo as any);
+            this.insertVerticesIntoNeighbors(intersections, polygon);
+            const parts = this.splitPolygonAlongLine(polyGeo as any, lineGeo as any);
 
-            const part1 = turf.difference(turf.featureCollection([polyGeo as any, blade as any]));
-            const part2 = turf.intersect(turf.featureCollection([polyGeo as any, blade as any]));
-
-            if (part1 && part2) {
-                const processResult = (result: any) => {
-                    const flattened = turf.flatten(result);
-                    flattened.features.forEach(f => {
-                        const l = L.geoJSON(f, {
-                            style: getModePathOptions(this.options, AnvilMode.Split),
-                        }).getLayers()[0] as L.Polygon;
-                        l.addTo(this.map);
-                        this.map.fire(ANVIL_EVENTS.CREATED, { layer: l });
-                    });
-                };
-
+            if (parts.length >= 2) {
                 this.map.fire(ANVIL_EVENTS.DELETED, { layer: polygon });
                 this.map.removeLayer(polygon);
-
-                processResult(part1);
-                processResult(part2);
+                parts.forEach((feature) => {
+                    const l = L.geoJSON(feature as any, {
+                        style: getModePathOptions(this.options, AnvilMode.Split),
+                    }).getLayers()[0] as L.Polygon;
+                    l.addTo(this.map);
+                    this.map.fire(ANVIL_EVENTS.CREATED, { layer: l });
+                });
             }
         });
 
         this.resetDrawing();
+    }
+
+    private splitPolygonAlongLine(
+        polygon: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+        line: GeoJSON.Feature<GeoJSON.LineString>,
+    ): GeoJSON.Feature<GeoJSON.Polygon>[] {
+        const boundary = turf.polygonToLine(polygon as any);
+        const splitBoundary = turf.lineSplit(boundary as any, line as any);
+        const splitLine = turf.lineSplit(line as any, boundary as any);
+
+        const innerSegments = splitLine.features.filter((segment) => this.isSegmentInsidePolygon(segment as any, polygon));
+        if (innerSegments.length === 0) return [];
+
+        const polygonized = turf.polygonize(
+            turf.featureCollection([
+                ...splitBoundary.features,
+                ...innerSegments,
+            ]),
+        );
+
+        return polygonized.features.filter((feature) => this.isPolygonInsideOriginal(feature as any, polygon));
+    }
+
+    private isSegmentInsidePolygon(
+        segment: GeoJSON.Feature<GeoJSON.LineString>,
+        polygon: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+    ): boolean {
+        const coords = segment.geometry.coordinates;
+        if (coords.length < 2) return false;
+
+        const midpoint = turf.midpoint(
+            turf.point(coords[0]),
+            turf.point(coords[coords.length - 1]),
+        );
+
+        return turf.booleanWithin(midpoint, polygon as any);
+    }
+
+    private isPolygonInsideOriginal(
+        candidate: GeoJSON.Feature<GeoJSON.Polygon>,
+        original: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+    ): boolean {
+        const point = turf.pointOnFeature(candidate);
+        return turf.booleanWithin(point, original as any) || turf.booleanPointInPolygon(point, original as any);
     }
 
     private insertVerticesIntoNeighbors(intersections: any, activePolygon: L.Polygon): void {
