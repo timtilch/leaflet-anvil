@@ -30,6 +30,12 @@ export interface Mode {
     disable(): void;
 }
 
+export type AnvilModeTooltips = Partial<Record<AnvilMode, string>>;
+export type AnvilModeTooltipResolver = (
+    mode: AnvilMode,
+    defaultTooltip: string,
+) => string | null | undefined;
+
 export interface AnvilOptions {
     layerGroup?: L.FeatureGroup;
     snapping?: boolean;
@@ -43,6 +49,7 @@ export interface AnvilOptions {
     modeStyles?: AnvilModeStyles;
     controlPosition?: L.ControlPosition;
     modes?: (AnvilMode | AnvilMode[])[];
+    modeTooltips?: AnvilModeTooltips | AnvilModeTooltipResolver;
 }
 
 export interface AnvilModeStyleOptions {
@@ -138,6 +145,7 @@ export class Anvil {
         this.control = anvilControl(this, {
             position: this.options.controlPosition,
             modes: modesFromOptions,
+            modeTooltips: this.options.modeTooltips,
         });
         this.control?.addTo(this.map);
     }

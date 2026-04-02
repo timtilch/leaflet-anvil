@@ -94,6 +94,7 @@ Activation via `anvil.enable(AnvilMode.Name)` or through the UI toolbar:
 | `modeStyles`              | `object`  | `{}`        | Per-mode style overrides for drawing, handles and active selection/highlight states.                                  |
 | `controlPosition`         | `string`  | `'topleft'` | Determines the position of the toolbar on the map (e.g., `'topright'`).                                              |
 | `modes`                   | `Array`   | `All`       | Defines which buttons appear in the toolbar. Supports nested arrays for button groups (blocks).                      |
+| `modeTooltips`            | `object \\| function` | `Defaults` | Overrides toolbar button tooltips. Missing values keep the built-in defaults. Use a function if translations can change after initialization. |
 
 ### Mode-Specific Styles
 
@@ -169,6 +170,30 @@ const anvil = new Anvil(map, {
 
 If you want to style the active highlight of interaction modes, use `selectionPathOptions`.
 That is what controls the temporary emphasis color when a geometry is selected in modes such as `Edit` or while actively transforming it in `Drag`, `Scale`, `Rotate`, `Union` or `Subtract`.
+
+### Custom Toolbar Tooltips
+
+For simple overrides, pass a static map:
+
+```typescript
+const anvil = new Anvil(map, {
+    modeTooltips: {
+        [AnvilMode.Edit]: 'Edit geometry',
+        [AnvilMode.Delete]: 'Remove geometry',
+        [AnvilMode.Off]: 'Disable tools',
+    },
+});
+```
+
+If your app language can change after `Anvil` has been created, pass a resolver instead.
+The toolbar re-reads the tooltip when a button is focused or hovered, so the next interaction uses the current language without recreating the control.
+The second argument is the built-in default tooltip, so you can preserve defaults without duplicating them.
+
+```typescript
+const anvil = new Anvil(map, {
+    modeTooltips: (mode, fallback) => i18n.t(`mapTools.${mode}`, fallback),
+});
+```
 
 ### Events (`ANVIL_EVENTS`)
 
