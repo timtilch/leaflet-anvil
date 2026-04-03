@@ -14,7 +14,7 @@ TypeScript features, and support for complex geometric operations like Union and
     - `Union`: Merge two polygons into one.
     - `Subtract`: Subtract one polygon from another.
     - `Cut` & `Split`: Cut lines or split areas.
-- **Smart Helpers**: Snapping to existing points, topology-aware splitting, and shared-vertex pinning while editing.
+- **Smart Helpers**: Snapping to existing points, topology-aware splitting, and linked vertices across touching layers while editing.
 - **Event-driven**: Easy integration through a consistent event system.
 
 ## Installation
@@ -70,7 +70,7 @@ Activation via `anvil.enable(AnvilMode.Name)` or through the UI toolbar:
 |               | `Triangle`       | Creates a triangle.                                      |
 |               | `Circle`         | Creates a circle with radius determination.              |
 | **Transform** | `Edit`           | Edit selected geometries vertex-by-vertex.               |
-|               | `Topology`       | Edit the whole layer group with shared vertices pinned.  |
+|               | `Topology`       | Edit the whole layer group with linked vertices across touching layers. |
 |               | `Drag`           | Move entire geometries on the map.                       |
 |               | `Scale`          | Proportional resizing (scaling).                         |
 |               | `Rotate`         | Rotate geometries around their center.                   |

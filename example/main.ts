@@ -89,7 +89,7 @@ const MODE_HINTS: Record<AnvilMode, { title: string; description: string; tip: s
     },
     [AnvilMode.Topology]: {
         title: 'Topology',
-        description: 'Edits the whole layer group at once so shared vertices stay stitched together.',
+        description: 'Edits the whole layer group at once so touching boundaries stay stitched together.',
         tip: 'Use this when adjacent zones should move as one connected network.',
     },
     [AnvilMode.Delete]: {

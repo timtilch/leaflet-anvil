@@ -35,7 +35,7 @@ describe('TopologyMode', () => {
         expect(((mode as any).markers as L.CircleMarker[]).length).toBeGreaterThan(0);
     });
 
-    it('moves shared vertices across touching geometries without manual selection', () => {
+    it('moves common vertices across touching geometries without manual selection', () => {
         const first = L.polygon([[0, 0], [0, 1], [1, 0]]).addTo(map);
         const second = L.polygon([[0, 0], [0, -1], [-1, 0]]).addTo(map);
         store.addLayer(first);

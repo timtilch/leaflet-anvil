@@ -66,7 +66,7 @@ describe('EditMode', () => {
         expect(activeLayers.has(second)).toBe(true);
     });
 
-    it('pins shared vertices when touching selected geometries are multi-selected', () => {
+    it('links common vertices when touching selected geometries are multi-selected', () => {
         const first = L.polygon([[0, 0], [0, 1], [1, 0]]).addTo(map);
         const second = L.polygon([[0, 0], [0, -1], [-1, 0]]).addTo(map);
         store.addLayer(first);
