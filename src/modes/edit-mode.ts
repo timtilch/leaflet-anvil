@@ -511,6 +511,11 @@ export class EditMode implements Mode {
     }
 
     private deleteVertex(group: VertexGroup): void {
+        if (this.options.preventSelfIntersection) {
+            const wouldIntersect = group.refs.some(ref => this.wouldDeletedVertexSelfIntersect(ref));
+            if (wouldIntersect) return;
+        }
+
         const layersToDelete = new Set<L.Layer>();
 
         group.refs.forEach(ref => {
@@ -769,6 +774,28 @@ export class EditMode implements Mode {
         ];
 
         return this.changedSegmentsIntersect(updatedPoints, [index, index + 1], isPolygon);
+    }
+
+    private wouldDeletedVertexSelfIntersect(ref: VertexRef): boolean {
+        const ring = this.getEditableRing(ref);
+        if (!ring) return false;
+
+        const { points, index, isPolygon } = ring;
+        const minVertices = isPolygon ? 3 : 2;
+
+        if (points.length <= minVertices) return false;
+        if (!isPolygon && (index === 0 || index === points.length - 1)) return false;
+
+        const updatedPoints = points.slice();
+        updatedPoints.splice(index, 1);
+
+        if (updatedPoints.length < minVertices) return false;
+
+        const changedSegmentIndex = isPolygon
+            ? (index - 1 + updatedPoints.length) % updatedPoints.length
+            : index - 1;
+
+        return this.changedSegmentsIntersect(updatedPoints, [changedSegmentIndex], isPolygon);
     }
 
     private getEditableRing(ref: VertexRef | SegmentRef): { points: L.LatLng[]; index: number; isPolygon: boolean } | null {

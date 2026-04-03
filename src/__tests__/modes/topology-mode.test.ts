@@ -72,4 +72,34 @@ describe('TopologyMode', () => {
         expect(activeLayers.has(polygon)).toBe(true);
         expect(((mode as any).markers as L.CircleMarker[]).length).toBeGreaterThan(0);
     });
+
+    it('prevents vertex deletion from creating a self-intersection', () => {
+        mode.disable();
+        mode = new TopologyMode(map, store, { preventSelfIntersection: true });
+
+        const polygon = L.polygon([
+            [0, 0],
+            [0, 4],
+            [4, 4],
+            [4, 0],
+            [3, 1],
+            [1, 3],
+            [1, 1],
+        ]).addTo(map);
+        store.addLayer(polygon);
+
+        mode.enable();
+
+        const vertexGroup = ((mode as any).markers as L.CircleMarker[])
+            .map(marker => (marker as any)._anvilHandleMeta?.group)
+            .find((group: any) => group?.latlng.lat === 0 && group?.latlng.lng === 4);
+
+        expect(vertexGroup).toBeDefined();
+
+        (mode as any).deleteVertex(vertexGroup);
+
+        const latlngs = (polygon.getLatLngs() as L.LatLng[][])[0];
+        expect(latlngs).toHaveLength(7);
+        expect(latlngs[1]).toMatchObject({ lat: 0, lng: 4 });
+    });
 });
