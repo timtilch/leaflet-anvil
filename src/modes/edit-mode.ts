@@ -7,6 +7,16 @@ import { getModeHandleOptions, getModeSelectionPathOptions } from '../utils/mode
 import { getSnapLatLng } from '../utils/snapping';
 import { segmentsIntersect } from '../utils/geometry';
 
+export interface EditModeConfig {
+    modeId?: AnvilMode;
+    autoSelectAll?: boolean;
+    allowLayerSelection?: boolean;
+    clearSelectionOnMapClick?: boolean;
+    defaultSelectionPathOptions?: L.PathOptions;
+    defaultHandleOptions?: L.CircleMarkerOptions;
+    defaultGhostHandleOptions?: L.CircleMarkerOptions;
+}
+
 type VertexRef = { layer: L.Path; path: number[] };
 type VertexGroup = { latlng: L.LatLng; refs: VertexRef[]; marker: L.CircleMarker | null };
 type SegmentRef = { layer: L.Path; path: number[] };
@@ -30,12 +40,39 @@ export class EditMode implements Mode {
     private originalLayerStyles = new Map<L.Path, L.PathOptions>();
     private handleRenderer?: L.Renderer;
     private readonly handlePaneName = 'anvil-edit-handles';
+    private readonly config: Required<EditModeConfig>;
 
     constructor(
         private map: L.Map,
         private store: LayerStore,
         private options: AnvilOptions = {},
+        config: EditModeConfig = {},
     ) {
+        this.config = {
+            modeId: AnvilMode.Edit,
+            autoSelectAll: false,
+            allowLayerSelection: true,
+            clearSelectionOnMapClick: true,
+            defaultSelectionPathOptions: {
+                color: '#ff00ff',
+                weight: 4,
+            },
+            defaultHandleOptions: {
+                radius: 6,
+                color: '#ff00ff',
+                fillColor: '#fff',
+                fillOpacity: 1,
+                weight: 2,
+            },
+            defaultGhostHandleOptions: {
+                radius: 5,
+                color: '#fff',
+                fillColor: '#ff00ff',
+                fillOpacity: 0.85,
+                weight: 2,
+            },
+            ...config,
+        };
     }
 
     enable(): void {
@@ -43,11 +80,7 @@ export class EditMode implements Mode {
         this.handleRenderer = this.createHandleRenderer();
 
         this.store.getGroup().eachLayer(layer => {
-            if (layer instanceof L.Path || layer instanceof L.Marker) {
-                layer.on('click', this.onLayerClick, this);
-                layer.on('mousemove', this.onMapMouseMove, this);
-                (layer.getElement() as HTMLElement)?.style.setProperty('cursor', 'pointer');
-            }
+            this.bindLayerEvents(layer);
         });
 
         this.map.on('click', this.onMapClick, this);
@@ -55,19 +88,21 @@ export class EditMode implements Mode {
         this.map.on('mousemove', this.onMapMouseMove, this);
         this.map.on('mouseup', this.onMapMouseUp, this);
         this.map.on('contextmenu', this.onMapContextMenu, this);
+        this.map.on(ANVIL_EVENTS.CREATED, this.onLayerCreated, this);
+        this.map.on(ANVIL_EVENTS.DELETED, this.onLayerDeleted, this);
         L.DomEvent.on(window as any, 'mousemove', this.onWindowMouseMove as any, this);
         L.DomEvent.on(window as any, 'mouseup', this.onWindowMouseUp as any, this);
+
+        if (this.config.autoSelectAll) {
+            this.syncAutoSelection();
+        }
     }
 
     disable(): void {
         this.finishDrag(false);
 
         this.store.getGroup().eachLayer(layer => {
-            if (layer instanceof L.Path || layer instanceof L.Marker) {
-                layer.off('click', this.onLayerClick, this);
-                layer.off('mousemove', this.onMapMouseMove, this);
-                (layer.getElement() as HTMLElement)?.style.setProperty('cursor', '');
-            }
+            this.unbindLayerEvents(layer);
         });
 
         this.map.off('click', this.onMapClick, this);
@@ -75,6 +110,8 @@ export class EditMode implements Mode {
         this.map.off('mousemove', this.onMapMouseMove, this);
         this.map.off('mouseup', this.onMapMouseUp, this);
         this.map.off('contextmenu', this.onMapContextMenu, this);
+        this.map.off(ANVIL_EVENTS.CREATED, this.onLayerCreated, this);
+        this.map.off(ANVIL_EVENTS.DELETED, this.onLayerDeleted, this);
         L.DomEvent.off(window as any, 'mousemove', this.onWindowMouseMove as any, this);
         L.DomEvent.off(window as any, 'mouseup', this.onWindowMouseUp as any, this);
 
@@ -91,6 +128,11 @@ export class EditMode implements Mode {
 
         this.stopLeafletEvent(e);
         this.blurActiveElement();
+
+        if (!this.config.allowLayerSelection) {
+            return;
+        }
+
         const layer = e.target as L.Layer;
         const isMultiSelect = e.originalEvent.shiftKey || this.options.magnetic;
 
@@ -125,10 +167,23 @@ export class EditMode implements Mode {
         }
 
         if (this.isDragging) return;
+        if (!this.config.clearSelectionOnMapClick) return;
 
         this.restoreAllPathStyles();
         this.clearMarkers();
         this.activeLayers.clear();
+    }
+
+    private onLayerCreated(e: { layer: L.Layer }): void {
+        this.bindLayerEvents(e.layer);
+        if (this.config.autoSelectAll) this.syncAutoSelection();
+    }
+
+    private onLayerDeleted(e: { layer: L.Layer }): void {
+        this.unbindLayerEvents(e.layer);
+        this.activeLayers.delete(e.layer);
+        if (e.layer instanceof L.Path) this.originalLayerStyles.delete(e.layer);
+        if (this.config.autoSelectAll) this.syncAutoSelection();
     }
 
     private onMapMouseDown(e: L.LeafletMouseEvent): void {
@@ -568,7 +623,49 @@ export class EditMode implements Mode {
     }
 
     private refreshMarkers(): void {
+        if (this.config.autoSelectAll) {
+            this.syncAutoSelection();
+            return;
+        }
+
         this.clearMarkers();
+        this.createMarkers();
+    }
+
+    private bindLayerEvents(layer: L.Layer): void {
+        if (!this.isEditableLayer(layer)) return;
+
+        layer.on('click', this.onLayerClick, this);
+        layer.on('mousemove', this.onMapMouseMove, this);
+        (layer.getElement() as HTMLElement | undefined)?.style.setProperty('cursor', 'pointer');
+    }
+
+    private unbindLayerEvents(layer: L.Layer): void {
+        if (!this.isEditableLayer(layer)) return;
+
+        layer.off('click', this.onLayerClick, this);
+        layer.off('mousemove', this.onMapMouseMove, this);
+        (layer.getElement() as HTMLElement | undefined)?.style.setProperty('cursor', '');
+    }
+
+    private isEditableLayer(layer: L.Layer): layer is L.Path | L.Marker {
+        return layer instanceof L.Path || layer instanceof L.Marker;
+    }
+
+    private syncAutoSelection(): void {
+        this.restoreAllPathStyles();
+        this.clearMarkers();
+        this.activeLayers.clear();
+
+        this.store.getGroup().eachLayer(layer => {
+            if (!this.isEditableLayer(layer)) return;
+            this.activeLayers.add(layer);
+        });
+
+        this.activeLayers.forEach(layer => {
+            if (layer instanceof L.Path) this.applySelectionStyle(layer);
+        });
+
         this.createMarkers();
     }
 
@@ -578,10 +675,12 @@ export class EditMode implements Mode {
         }
 
         layer.setStyle(
-            getModeSelectionPathOptions(this.options, AnvilMode.Edit, this.originalLayerStyles.get(layer) || {}, {
-                color: '#ff00ff',
-                weight: 4,
-            }),
+            getModeSelectionPathOptions(
+                this.options,
+                this.config.modeId,
+                this.originalLayerStyles.get(layer) || {},
+                this.config.defaultSelectionPathOptions,
+            ),
         );
     }
 
@@ -613,13 +712,7 @@ export class EditMode implements Mode {
     }
 
     private getEditHandleOptions(): L.CircleMarkerOptions {
-        const handle = getModeHandleOptions(this.options, AnvilMode.Edit, {
-            radius: 6,
-            color: '#ff00ff',
-            fillColor: '#fff',
-            fillOpacity: 1,
-            weight: 2,
-        });
+        const handle = getModeHandleOptions(this.options, this.config.modeId, this.config.defaultHandleOptions);
 
         return {
             ...handle,
@@ -631,13 +724,7 @@ export class EditMode implements Mode {
     }
 
     private getGhostHandleOptions(): L.CircleMarkerOptions {
-        const handle = getModeHandleOptions(this.options, AnvilMode.Edit, {
-            radius: 5,
-            color: '#fff',
-            fillColor: '#ff00ff',
-            fillOpacity: 0.85,
-            weight: 2,
-        });
+        const handle = getModeHandleOptions(this.options, this.config.modeId, this.config.defaultGhostHandleOptions);
 
         return {
             ...handle,

@@ -87,6 +87,11 @@ const MODE_HINTS: Record<AnvilMode, { title: string; description: string; tip: s
         description: 'Selects geometries and exposes draggable edit handles.',
         tip: 'Shift-click keeps multiple geometries selected.',
     },
+    [AnvilMode.Topology]: {
+        title: 'Topology',
+        description: 'Edits the whole layer group at once so shared vertices stay stitched together.',
+        tip: 'Use this when adjacent zones should move as one connected network.',
+    },
     [AnvilMode.Delete]: {
         title: 'Delete',
         description: 'Removes a clicked layer immediately.',
@@ -244,6 +249,18 @@ const anvil = new Anvil(map, {
                 radius: 6,
             },
         },
+        [AnvilMode.Topology]: {
+            selectionPathOptions: {
+                color: '#0891b2',
+                weight: 3,
+                opacity: 0.9,
+            },
+            handleOptions: {
+                color: '#0891b2',
+                fillColor: '#ecfeff',
+                radius: 5,
+            },
+        },
         [AnvilMode.Drag]: {
             selectionPathOptions: {
                 color: '#f59e0b',
@@ -290,6 +307,7 @@ const anvil = new Anvil(map, {
         ],
         [
             AnvilMode.Edit,
+            AnvilMode.Topology,
             AnvilMode.Drag,
             AnvilMode.Scale,
             AnvilMode.Rotate,

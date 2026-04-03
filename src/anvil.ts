@@ -17,6 +17,7 @@ import { RotateMode } from './modes/rotate-mode';
 import { UnionMode } from './modes/union-mode';
 import { SubtractMode } from './modes/subtract-mode';
 import { EditMode } from './modes/edit-mode';
+import { TopologyMode } from './modes/topology-mode';
 import { DeleteMode } from './modes/delete-mode';
 import { LayerStore } from './layers/layer-store';
 import { ANVIL_EVENTS } from './events';
@@ -150,6 +151,9 @@ export class Anvil {
         }
         if (flattenedModes.includes(AnvilMode.Edit)) {
             this.modeManager.addMode(AnvilMode.Edit, new EditMode(this.map, this.store, this.options));
+        }
+        if (flattenedModes.includes(AnvilMode.Topology)) {
+            this.modeManager.addMode(AnvilMode.Topology, new TopologyMode(this.map, this.store, this.options));
         }
         if (flattenedModes.includes(AnvilMode.Delete)) {
             this.modeManager.addMode(AnvilMode.Delete, new DeleteMode(map, this.store));
