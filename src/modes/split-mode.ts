@@ -6,6 +6,7 @@ import { ANVIL_EVENTS } from '../events';
 import { AnvilMode } from '../types';
 import { getModeGhostPathOptions, getModeHandleOptions, getModePathOptions } from '../utils/mode-styles';
 import { getSnapLatLng } from '../utils/snapping';
+import { collectTouchingPolygons, createCoverageSnapshot, repairPolygonCoverage } from '../utils/polygon-topology';
 
 export class SplitMode implements Mode {
     private points: L.LatLng[] = [];
@@ -136,25 +137,46 @@ export class SplitMode implements Mode {
             return;
         }
 
+        const repairCandidates = collectTouchingPolygons(this.store.getGroup(), layersToSplit);
+        const coverageSnapshot = createCoverageSnapshot(repairCandidates);
+        const deletedPolygons = new Set<L.Polygon>();
+        const createdPolygons: L.Polygon[] = [];
+
         layersToSplit.forEach(polygon => {
             const polyGeo = polygon.toGeoJSON();
+            const sourceStyle = { ...polygon.options };
 
             const intersections = turf.lineIntersect(lineGeo as any, polyGeo as any);
             this.insertVerticesIntoNeighbors(intersections, polygon);
-            const parts = this.splitPolygonAlongLine(polyGeo as any, lineGeo as any);
+            const parts = this.normalizeSplitParts(
+                polyGeo as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+                this.splitPolygonAlongLine(polyGeo as any, lineGeo as any),
+            );
 
             if (parts.length >= 2) {
+                deletedPolygons.add(polygon);
                 this.map.fire(ANVIL_EVENTS.DELETED, { layer: polygon });
                 this.map.removeLayer(polygon);
                 parts.forEach((feature) => {
                     const l = L.geoJSON(feature as any, {
-                        style: getModePathOptions(this.options, AnvilMode.Split),
+                        style: sourceStyle,
                     }).getLayers()[0] as L.Polygon;
                     l.addTo(this.map);
+                    createdPolygons.push(l);
                     this.map.fire(ANVIL_EVENTS.CREATED, { layer: l });
                 });
             }
         });
+
+        if (coverageSnapshot) {
+            const currentRepairLayers = [
+                ...repairCandidates.filter(layer => !deletedPolygons.has(layer) && this.map.hasLayer(layer)),
+                ...createdPolygons,
+            ].filter((layer, index, arr) => arr.indexOf(layer) === index);
+
+            repairPolygonCoverage(currentRepairLayers, coverageSnapshot)
+                .forEach(layer => this.map.fire(ANVIL_EVENTS.EDITED, { layer }));
+        }
 
         this.resetDrawing();
     }
@@ -208,6 +230,49 @@ export class SplitMode implements Mode {
         }
     }
 
+    private normalizeSplitParts(
+        target: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+        parts: GeoJSON.Feature<GeoJSON.Polygon>[],
+    ): GeoJSON.Feature<GeoJSON.Polygon>[] {
+        const sanitizedTarget = this.sanitizePolygonFeature(target);
+        if (!sanitizedTarget) return [];
+
+        const rawParts = parts
+            .map(part => this.sanitizePolygonFeature(part))
+            .filter((part): part is GeoJSON.Feature<GeoJSON.Polygon> => Boolean(part) && part.geometry.type === 'Polygon');
+
+        if (rawParts.length < 2) return rawParts;
+
+        const assigned = rawParts.map(() => [] as GeoJSON.Feature<GeoJSON.Polygon>[]);
+        let remainder: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null = sanitizedTarget;
+
+        rawParts.forEach((part, index) => {
+            if (!remainder) return;
+
+            const clipped = this.intersectPolygonFeatures(part, remainder);
+            assigned[index].push(...clipped);
+            remainder = this.subtractPolygonFeature(remainder, part);
+        });
+
+        if (remainder) {
+            this.flattenPolygonFeatures(remainder).forEach((gap) => {
+                const ownerIndex = this.pickBestPartIndex(gap, rawParts);
+                if (ownerIndex >= 0) {
+                    assigned[ownerIndex].push(gap);
+                }
+            });
+        }
+
+        return assigned.flatMap((cells) => {
+            if (cells.length === 0) return [];
+
+            const merged = this.unionPolygonFeatures(cells);
+            if (!merged) return [];
+
+            return this.flattenPolygonFeatures(merged);
+        });
+    }
+
     private isSegmentInsidePolygon(
         segment: GeoJSON.Feature<GeoJSON.LineString>,
         polygon: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
@@ -229,6 +294,130 @@ export class SplitMode implements Mode {
     ): boolean {
         const point = turf.pointOnFeature(candidate);
         return turf.booleanWithin(point, original as any) || turf.booleanPointInPolygon(point, original as any);
+    }
+
+    private intersectPolygonFeatures(
+        first: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+        second: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+    ): GeoJSON.Feature<GeoJSON.Polygon>[] {
+        try {
+            const intersection = turf.intersect(
+                turf.featureCollection([first as any, second as any]),
+            ) as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null;
+
+            if (!intersection) return [];
+            return this.flattenPolygonFeatures(intersection);
+        } catch {
+            return [];
+        }
+    }
+
+    private subtractPolygonFeature(
+        base: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+        subtractor: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+    ): GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null {
+        try {
+            const diff = turf.difference(
+                turf.featureCollection([base as any, subtractor as any]),
+            ) as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null;
+
+            if (!diff) return null;
+            return this.sanitizePolygonFeature(diff);
+        } catch {
+            return base;
+        }
+    }
+
+    private unionPolygonFeatures(
+        features: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>[],
+    ): GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon> | null {
+        if (features.length === 0) return null;
+
+        let merged = this.sanitizePolygonFeature(features[0]);
+        if (!merged) return null;
+
+        for (const feature of features.slice(1)) {
+            const next = this.sanitizePolygonFeature(feature);
+            if (!next) continue;
+
+            try {
+                const unioned = turf.union(turf.featureCollection([merged as any, next as any]));
+                if (!unioned) continue;
+
+                const sanitizedUnion = this.sanitizePolygonFeature(unioned as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>);
+                if (sanitizedUnion) merged = sanitizedUnion;
+            } catch {
+                return null;
+            }
+        }
+
+        return merged;
+    }
+
+    private flattenPolygonFeatures(
+        feature: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+    ): GeoJSON.Feature<GeoJSON.Polygon>[] {
+        const polygons: GeoJSON.Feature<GeoJSON.Polygon>[] = [];
+
+        turf.flattenEach(feature as any, (flattened) => {
+            const sanitized = this.sanitizePolygonFeature(flattened as GeoJSON.Feature<GeoJSON.Polygon>);
+            if (sanitized && sanitized.geometry.type === 'Polygon') {
+                polygons.push(sanitized);
+            }
+        });
+
+        return polygons;
+    }
+
+    private pickBestPartIndex(
+        cell: GeoJSON.Feature<GeoJSON.Polygon>,
+        parts: GeoJSON.Feature<GeoJSON.Polygon>[],
+    ): number {
+        const cellBoundary = turf.polygonToLine(cell as any) as GeoJSON.Feature<GeoJSON.LineString | GeoJSON.MultiLineString>;
+        let bestIndex = -1;
+        let bestScore = -1;
+
+        parts.forEach((part, index) => {
+            const boundary = turf.polygonToLine(part as any) as GeoJSON.Feature<GeoJSON.LineString | GeoJSON.MultiLineString>;
+            const score = this.getBoundaryContactLength(cellBoundary, boundary);
+            if (score > bestScore) {
+                bestScore = score;
+                bestIndex = index;
+            }
+        });
+
+        if (bestScore > 0) return bestIndex;
+
+        const point = turf.pointOnFeature(cell);
+        let nearestIndex = -1;
+        let nearestDistance = Infinity;
+
+        parts.forEach((part, index) => {
+            try {
+                const boundary = turf.polygonToLine(part as any) as GeoJSON.Feature<GeoJSON.LineString | GeoJSON.MultiLineString>;
+                const distance = turf.pointToLineDistance(point as any, boundary as any);
+                if (distance < nearestDistance) {
+                    nearestDistance = distance;
+                    nearestIndex = index;
+                }
+            } catch {
+                // ignore invalid distances
+            }
+        });
+
+        return nearestIndex;
+    }
+
+    private getBoundaryContactLength(
+        first: GeoJSON.Feature<GeoJSON.LineString | GeoJSON.MultiLineString>,
+        second: GeoJSON.Feature<GeoJSON.LineString | GeoJSON.MultiLineString>,
+    ): number {
+        try {
+            const overlaps = turf.lineOverlap(first as any, second as any, { tolerance: 1e-12 });
+            return overlaps.features.reduce((sum, feature) => sum + turf.length(feature as any), 0);
+        } catch {
+            return 0;
+        }
     }
 
     private getBoundaryLines(
@@ -264,7 +453,19 @@ export class SplitMode implements Mode {
     private sanitizeLineStringFeature(
         feature: GeoJSON.Feature<GeoJSON.LineString>,
     ): GeoJSON.Feature<GeoJSON.LineString> | null {
-        const cleaned = turf.cleanCoords(feature as any, { mutate: false }) as GeoJSON.Feature<GeoJSON.LineString>;
+        let cleaned: GeoJSON.Feature<GeoJSON.LineString>;
+        try {
+            cleaned = turf.cleanCoords(feature as any, { mutate: false }) as GeoJSON.Feature<GeoJSON.LineString>;
+        } catch {
+            cleaned = {
+                ...feature,
+                geometry: {
+                    ...feature.geometry,
+                    coordinates: feature.geometry.coordinates.map(coord => [...coord]),
+                },
+            };
+        }
+
         if (cleaned.geometry.type !== 'LineString') return null;
 
         const coordinates = this.removeSequentialDuplicateCoords(cleaned.geometry.coordinates);
@@ -280,7 +481,15 @@ export class SplitMode implements Mode {
     private sanitizePolygonFeature<T extends GeoJSON.Polygon | GeoJSON.MultiPolygon>(
         feature: GeoJSON.Feature<T>,
     ): GeoJSON.Feature<T> | null {
-        const cleaned = turf.cleanCoords(feature as any, { mutate: false }) as GeoJSON.Feature<T>;
+        let cleaned: GeoJSON.Feature<T>;
+        try {
+            cleaned = turf.cleanCoords(feature as any, { mutate: false }) as GeoJSON.Feature<T>;
+        } catch {
+            cleaned = {
+                ...feature,
+                geometry: this.clonePolygonGeometry(feature.geometry) as T,
+            };
+        }
 
         if (cleaned.geometry.type === 'Polygon') {
             const rings = cleaned.geometry.coordinates
@@ -344,6 +553,24 @@ export class SplitMode implements Mode {
 
     private coordKey(coord: GeoJSON.Position): string {
         return `${coord[0].toFixed(12)},${coord[1].toFixed(12)}`;
+    }
+
+    private clonePolygonGeometry(
+        geometry: GeoJSON.Polygon | GeoJSON.MultiPolygon,
+    ): GeoJSON.Polygon | GeoJSON.MultiPolygon {
+        if (geometry.type === 'Polygon') {
+            return {
+                type: 'Polygon',
+                coordinates: geometry.coordinates.map(ring => ring.map(coord => [...coord])),
+            };
+        }
+
+        return {
+            type: 'MultiPolygon',
+            coordinates: geometry.coordinates.map(
+                polygon => polygon.map(ring => ring.map(coord => [...coord])),
+            ),
+        };
     }
 
     private insertVerticesIntoNeighbors(intersections: any, activePolygon: L.Polygon): void {

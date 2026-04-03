@@ -1,7 +1,7 @@
 import * as L from 'leaflet';
 import { Anvil, ANVIL_EVENTS, AnvilMode } from '../src';
 import 'leaflet/dist/leaflet.css';
-import sowingSuggestion5Sample from './sowing-suggestion-5-sample.json';
+import demoGeometries from './demo-geometries.json';
 
 const map = L.map('map').setView([51.505, -0.09], 13);
 const demoLayers = L.featureGroup();
@@ -108,33 +108,13 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors',
 }).addTo(map);
 
-const zonePalette = [
-    { stroke: '#14532d', fill: '#86efac' },
-    { stroke: '#166534', fill: '#4ade80' },
-    { stroke: '#15803d', fill: '#22c55e' },
-    { stroke: '#166534', fill: '#bef264' },
-    { stroke: '#365314', fill: '#fde047' },
-];
-
-L.geoJSON(sowingSuggestion5Sample as GeoJSON.FeatureCollection, {
-    style: (feature) => {
-        const rank = Math.max(1, Math.min(5, Number(feature?.properties?.sowingDensityRank) || 1));
-        const colors = zonePalette[rank - 1];
-
-        return {
-            color: colors.stroke,
-            fillColor: colors.fill,
-            fillOpacity: 0.42,
-            weight: 2,
-        };
-    },
-    onEachFeature: (feature, layer) => {
-        if (layer instanceof L.Path) {
-            const rank = feature.properties?.sowingDensityRank ?? 'n/a';
-            const area = feature.properties?.areaSquareMeters ?? 'n/a';
-            layer.bindTooltip(`Rank ${rank} • ${area} m²`);
-        }
-    },
+L.geoJSON(demoGeometries as GeoJSON.FeatureCollection, {
+    style: () => ({
+        color: '#14532d',
+        fillColor: '#86efac',
+        fillOpacity: 0.42,
+        weight: 2,
+    }),
 }).eachLayer((layer) => {
     demoLayers.addLayer(layer);
 });
@@ -331,7 +311,7 @@ function renderHint(mode: AnvilMode | null): void {
 
     const content = mode ? MODE_HINTS[mode] : {
         title: 'Choose a Mode',
-        description: 'This demo loads all SOWING_SUGGESTION_5 zones from the sample so you can test editing and topology behavior on real data.',
+        description: 'This demo loads a dense set of polygon geometries so you can test editing and topology behavior on a heavier sample.',
         tip: 'Try Split and Edit on the seeded zones to judge how the tools behave on denser geometry.',
     };
 

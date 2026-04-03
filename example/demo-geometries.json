@@ -3,22 +3,8 @@
   "features": [
     {
       "type": "Feature",
-      "properties": {
-        "id": "d020631a-be98-4402-956c-68648eb8d648",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 813,
-        "sampleIndex": 0
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -119,22 +105,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "42edf895-cc6a-4622-b692-550fd569c281",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 3479,
-        "sampleIndex": 1
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -371,22 +343,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "67575d63-ce43-418f-b830-e58d8d05feaa",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 761,
-        "sampleIndex": 2
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -455,22 +413,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "4fc9878f-259e-463b-9135-36029a7a0f51",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 35801,
-        "sampleIndex": 3
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -1173,22 +1117,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "c810e79f-7149-4e8b-b3db-a69720843582",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1011,
-        "sampleIndex": 4
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -1233,22 +1163,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "b27b6009-c100-4261-b035-56d6fdc47e2a",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1337,
-        "sampleIndex": 5
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -1357,22 +1273,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "8a98cf9a-4ba2-480f-a0b1-3bb154f1c4c9",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 446,
-        "sampleIndex": 6
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -1441,22 +1343,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "5204b958-c228-43db-93bb-3b1b935545c4",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1481,
-        "sampleIndex": 7
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -1537,22 +1425,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "a15a4d57-202c-4e54-b30b-4ac56829903c",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1159,
-        "sampleIndex": 8
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -1625,22 +1499,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "31a04104-b740-4e26-970d-268bf5cb2d8b",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 32449,
-        "sampleIndex": 9
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -2809,22 +2669,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "4e106ecd-186b-44fc-a359-049408f947bd",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -2,
-        "zoneVersion": 1,
-        "areaSquareMeters": 471,
-        "sampleIndex": 10
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -2873,22 +2719,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "7ae8eed5-a65d-4286-b849-a69da6915c6c",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 52891,
-        "sampleIndex": 11
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -4033,22 +3865,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "beaa60ea-2f40-4ddb-9386-8ca462fd098e",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -2,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1028,
-        "sampleIndex": 12
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -4141,22 +3959,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "aaca03e8-c12e-4841-9730-7f2009737db5",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 951,
-        "sampleIndex": 13
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -4269,22 +4073,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "e317017b-f1a4-44e9-b756-66317e1b6528",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 2434,
-        "sampleIndex": 14
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -4441,22 +4231,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "4a429c4d-86da-4789-8aea-d1e7dde6e4b8",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1115,
-        "sampleIndex": 15
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -4525,22 +4301,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "75129a0c-836e-4f70-aab7-049fddc0f5f1",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1111,
-        "sampleIndex": 16
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -4645,22 +4407,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "e6556e7d-f4e1-48de-ad50-934bdefb4df3",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 773,
-        "sampleIndex": 17
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -4729,22 +4477,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "be25d472-95cb-44d1-8ef5-823c95601277",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 2932,
-        "sampleIndex": 18
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -4945,22 +4679,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "0b230127-4e55-45bd-a41d-f144bd1b152f",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 6994,
-        "sampleIndex": 19
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -5329,22 +5049,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "f773e858-4cb3-4a9f-9e00-b022f2ded8e2",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 788,
-        "sampleIndex": 20
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -5413,22 +5119,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "028229d3-e86a-4415-ba20-b83174bc9507",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1229,
-        "sampleIndex": 21
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -5549,22 +5241,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "cf2020f8-ecc0-41bb-b50c-ad812a560168",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 2,
-        "zoneVersion": 1,
-        "areaSquareMeters": 6305,
-        "sampleIndex": 22
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -5705,22 +5383,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "da07b703-8961-414c-a595-801597e6a663",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 431,
-        "sampleIndex": 23
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -5781,22 +5445,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "a83f7588-ea74-42ab-8f33-0079d758cc5d",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 2,
-        "zoneVersion": 1,
-        "areaSquareMeters": 365540,
-        "sampleIndex": 24
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -8841,22 +8491,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "7073ac9f-2ebb-466b-811f-fae3bdf99f46",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1747,
-        "sampleIndex": 25
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -9001,22 +8637,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "b8fa9121-f5bb-443e-8a16-3fe62747ab78",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 21621,
-        "sampleIndex": 26
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -9705,22 +9327,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "50752b5e-0f92-47da-82dd-a906d978883b",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 390,
-        "sampleIndex": 27
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -9785,22 +9393,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "9999036e-8981-4c66-a6ae-43b6e9d4ca21",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 454,
-        "sampleIndex": 28
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -9861,22 +9455,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "8625421f-9270-413c-9046-cf1d84f8ace9",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 490,
-        "sampleIndex": 29
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -9937,22 +9517,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "c316b983-7315-44df-bf61-b0e0681964be",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1316,
-        "sampleIndex": 30
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -10057,22 +9623,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "8b327562-c539-41c5-8d44-643ad4fb0d32",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1148,
-        "sampleIndex": 31
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -10173,22 +9725,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "defae2ee-93b0-4396-ac5b-226cad9dada6",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 2056,
-        "sampleIndex": 32
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -10357,22 +9895,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "46e3fb2f-4068-44c9-9917-6dbe4c13d3f1",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 392,
-        "sampleIndex": 33
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -10421,22 +9945,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "eb21a423-267c-40f1-b2e6-29817fa3f37d",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1641,
-        "sampleIndex": 34
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -10541,22 +10051,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "9e1f47b6-31cd-4bf3-8a4d-32ea5a0f5659",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -2,
-        "zoneVersion": 1,
-        "areaSquareMeters": 823,
-        "sampleIndex": 35
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -10609,22 +10105,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "f05904ec-9f24-4ca8-ac73-185cdf43e6bd",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1318,
-        "sampleIndex": 36
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -10725,22 +10207,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "e533794e-1950-483f-97bf-7fca42f725e5",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1165,
-        "sampleIndex": 37
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -10857,22 +10325,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "2ad99e89-a88e-4dfb-b1d5-3f0a140eb178",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 2,
-        "zoneVersion": 1,
-        "areaSquareMeters": 9706,
-        "sampleIndex": 38
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -11101,22 +10555,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "d83b0c1b-3b22-49ec-b64d-f82518ae932a",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 733,
-        "sampleIndex": 39
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -11173,22 +10613,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "ba4d1195-166a-4344-be34-ff709c8a75e0",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 4199,
-        "sampleIndex": 40
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -11401,22 +10827,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "bffee72b-fb24-4ee6-a07e-6cdb370a4009",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 832,
-        "sampleIndex": 41
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -11525,22 +10937,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "02f48980-b0e6-4bdf-8359-92b5a9f936e4",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1908,
-        "sampleIndex": 42
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -11689,22 +11087,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "d276330b-c2d9-42ad-a26a-0702f0fac64c",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 481,
-        "sampleIndex": 43
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -11765,22 +11149,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "a040af8d-67c6-47f8-8627-ab6773ffe614",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 3767,
-        "sampleIndex": 44
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -11945,22 +11315,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "a4e8478e-57c0-40db-b059-7cd154da3fdb",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 517,
-        "sampleIndex": 45
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -12037,22 +11393,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "4f8dd206-df9c-4c53-9d61-7128fe4d18bb",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 5920,
-        "sampleIndex": 46
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -12277,22 +11619,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "fe2083ad-f855-42d7-9f62-c07817fc8c9e",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 408,
-        "sampleIndex": 47
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -12341,22 +11669,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "9bfdaa40-7ef0-47e7-a66f-20788020f237",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 5809,
-        "sampleIndex": 48
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -12593,22 +11907,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "f8e30462-eeeb-439e-85f9-5085f68222a6",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 536,
-        "sampleIndex": 49
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -12669,22 +11969,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "c7e3cead-2ed2-4a0a-a873-98e67a28cb8a",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 2776,
-        "sampleIndex": 50
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -12841,22 +12127,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "54a1574d-b072-4f5a-ac5c-ebc6f613871a",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 817,
-        "sampleIndex": 51
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -12965,22 +12237,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "fa3e693e-c1fd-411d-8e0c-b3789c150518",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 724,
-        "sampleIndex": 52
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -13057,22 +12315,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "d272c38f-5366-4ef9-904d-570c760f5acf",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 1080,
-        "sampleIndex": 53
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -13145,22 +12389,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "f13715fe-6d8f-430d-849e-eb54e57bff1d",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 796,
-        "sampleIndex": 54
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -13261,22 +12491,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "17e6613c-5c28-4829-b293-8f20d66cae73",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 752,
-        "sampleIndex": 55
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -13361,22 +12577,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "08f74655-af51-43bc-98aa-cb6d82f76b61",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 0,
-        "zoneVersion": 1,
-        "areaSquareMeters": 14211,
-        "sampleIndex": 56
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -13955,22 +13157,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "524e20b5-971c-4831-86a7-5106b9c2e02d",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": 1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 258430,
-        "sampleIndex": 57
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [
@@ -20683,22 +19871,8 @@
     },
     {
       "type": "Feature",
-      "properties": {
-        "id": "630eff85-1112-469d-b7bf-f7c767659a02",
-        "usage": "SOWING_SUGGESTION_5",
-        "sowingDensityRank": -1,
-        "zoneVersion": 1,
-        "areaSquareMeters": 3129,
-        "sampleIndex": 58
-      },
       "geometry": {
         "type": "Polygon",
-        "crs": {
-          "type": "name",
-          "properties": {
-            "name": "EPSG:4326"
-          }
-        },
         "coordinates": [
           [
             [

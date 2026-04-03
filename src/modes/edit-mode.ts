@@ -6,6 +6,7 @@ import { AnvilMode } from '../types';
 import { getModeHandleOptions, getModeSelectionPathOptions } from '../utils/mode-styles';
 import { getSnapLatLng } from '../utils/snapping';
 import { segmentsIntersect } from '../utils/geometry';
+import { CoverageSnapshot, createCoverageSnapshot, getPolygonOverlapArea, hasSharedBoundaryCoverage, repairPolygonCoverage, sanitizePolygonFeature } from '../utils/polygon-topology';
 
 export interface EditModeConfig {
     modeId?: AnvilMode;
@@ -28,8 +29,14 @@ type DragState =
     | { kind: 'vertex'; group: VertexGroup; marker: L.CircleMarker }
     | { kind: 'ghost'; segment: SegmentGroup; marker: L.CircleMarker }
     | { kind: 'circle'; circle: L.Circle; marker: L.CircleMarker };
+type LayerRollbackState = {
+    latlngs?: any;
+    latlng?: L.LatLng;
+    feature?: GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>;
+};
 
 export class EditMode implements Mode {
+    private static readonly OVERLAP_AREA_TOLERANCE = 1e-3;
     private activeLayers = new Set<L.Layer>();
     private markers: L.CircleMarker[] = [];
     private ghostMarker: L.CircleMarker | null = null;
@@ -41,6 +48,8 @@ export class EditMode implements Mode {
     private handleRenderer?: L.Renderer;
     private readonly handlePaneName = 'anvil-edit-handles';
     private readonly config: Required<EditModeConfig>;
+    private coverageSnapshot: CoverageSnapshot | null = null;
+    private dragRollbackState: Map<L.Layer, LayerRollbackState> | null = null;
 
     constructor(
         private map: L.Map,
@@ -368,6 +377,8 @@ export class EditMode implements Mode {
     }
 
     private startVertexDrag(group: VertexGroup, marker: L.CircleMarker): void {
+        this.captureCoverageSnapshotIfNeeded();
+        this.captureDragRollbackState(group.refs.map(ref => ref.layer));
         this.removeGhost();
         this.dragState = { kind: 'vertex', group, marker };
         this.isDragging = true;
@@ -375,6 +386,8 @@ export class EditMode implements Mode {
     }
 
     private startGhostDrag(segment: SegmentGroup, marker: L.CircleMarker): void {
+        this.captureCoverageSnapshotIfNeeded();
+        this.captureDragRollbackState(segment.refs.map(ref => ref.layer));
         const startLatLng = marker.getLatLng();
         segment.refs.forEach(ref => {
             const fullStructure = (ref.layer as L.Polyline).getLatLngs() as any;
@@ -392,6 +405,8 @@ export class EditMode implements Mode {
     }
 
     private startCircleDrag(circle: L.Circle, marker: L.CircleMarker): void {
+        this.coverageSnapshot = null;
+        this.captureDragRollbackState([circle]);
         this.removeGhost();
         this.dragState = { kind: 'circle', circle, marker };
         this.isDragging = true;
@@ -503,6 +518,16 @@ export class EditMode implements Mode {
             this.map.dragging.enable();
         }
 
+        if (this.options.preventSelfIntersection && this.wouldCurrentDragCreateOverlap()) {
+            this.restoreDragRollbackState();
+            this.coverageSnapshot = null;
+            this.refreshMarkers();
+            return;
+        }
+
+        this.repairCoverageIfNeeded().forEach(layer => editedLayers.add(layer));
+        this.dragRollbackState = null;
+
         if (emitEdited) {
             editedLayers.forEach(layer => this.map.fire(ANVIL_EVENTS.EDITED, { layer }));
         }
@@ -511,12 +536,15 @@ export class EditMode implements Mode {
     }
 
     private deleteVertex(group: VertexGroup): void {
+        this.captureCoverageSnapshotIfNeeded();
+
         if (this.options.preventSelfIntersection) {
             const wouldIntersect = group.refs.some(ref => this.wouldDeletedVertexSelfIntersect(ref));
             if (wouldIntersect) return;
         }
 
         const layersToDelete = new Set<L.Layer>();
+        const editedLayers = new Set<L.Layer>();
 
         group.refs.forEach(ref => {
             const fullStructure = (ref.layer as L.Polyline).getLatLngs() as any;
@@ -533,7 +561,7 @@ export class EditMode implements Mode {
                 target.splice(index, 1);
                 (ref.layer as L.Polyline).setLatLngs(fullStructure);
                 ref.layer.redraw();
-                this.map.fire(ANVIL_EVENTS.EDITED, { layer: ref.layer });
+                editedLayers.add(ref.layer);
             } else {
                 layersToDelete.add(ref.layer);
             }
@@ -545,6 +573,14 @@ export class EditMode implements Mode {
             this.map.removeLayer(layer);
             this.map.fire(ANVIL_EVENTS.DELETED, { layer });
         });
+
+        if (layersToDelete.size === 0) {
+            this.repairCoverageIfNeeded().forEach(layer => editedLayers.add(layer));
+        } else {
+            this.coverageSnapshot = null;
+        }
+
+        editedLayers.forEach(layer => this.map.fire(ANVIL_EVENTS.EDITED, { layer }));
 
         this.refreshMarkers();
     }
@@ -616,6 +652,8 @@ export class EditMode implements Mode {
         this.segments = [];
         this.dragState = null;
         this.isDragging = false;
+        this.coverageSnapshot = null;
+        this.dragRollbackState = null;
 
         if (this.ghostMarker) {
             this.map.removeLayer(this.ghostMarker);
@@ -655,6 +693,36 @@ export class EditMode implements Mode {
 
     private isEditableLayer(layer: L.Layer): layer is L.Path | L.Marker {
         return layer instanceof L.Path || layer instanceof L.Marker;
+    }
+
+    private getActivePolygonLayers(): L.Polygon[] {
+        return Array.from(this.activeLayers).filter((layer): layer is L.Polygon => layer instanceof L.Polygon);
+    }
+
+    private shouldMaintainCoverage(): boolean {
+        const polygons = this.getActivePolygonLayers();
+        return polygons.length > 1 && hasSharedBoundaryCoverage(polygons);
+    }
+
+    private captureCoverageSnapshotIfNeeded(): void {
+        if (!this.shouldMaintainCoverage()) {
+            this.coverageSnapshot = null;
+            return;
+        }
+
+        this.coverageSnapshot = createCoverageSnapshot(this.getActivePolygonLayers());
+    }
+
+    private repairCoverageIfNeeded(): L.Polygon[] {
+        if (!this.coverageSnapshot) return [];
+
+        const polygons = this.getActivePolygonLayers();
+        const repaired = polygons.length > 1
+            ? repairPolygonCoverage(polygons, this.coverageSnapshot)
+            : [];
+
+        this.coverageSnapshot = null;
+        return repaired;
     }
 
     private syncAutoSelection(): void {
@@ -821,6 +889,125 @@ export class EditMode implements Mode {
             index: ref.path[ref.path.length - 1],
             isPolygon,
         };
+    }
+
+    private captureDragRollbackState(layers: L.Layer[]): void {
+        const rollback = new Map<L.Layer, LayerRollbackState>();
+
+        layers.forEach((layer) => {
+            if (rollback.has(layer)) return;
+
+            if (layer instanceof L.Polyline) {
+                const state: LayerRollbackState = {
+                    latlngs: this.cloneLatLngStructure(layer.getLatLngs() as any),
+                };
+
+                if (layer instanceof L.Polygon) {
+                    const feature = sanitizePolygonFeature(
+                        layer.toGeoJSON() as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+                    );
+                    if (feature) state.feature = feature;
+                }
+
+                rollback.set(layer, state);
+                return;
+            }
+
+            if (layer instanceof L.Circle || layer instanceof L.Marker) {
+                rollback.set(layer, { latlng: L.latLng(layer.getLatLng().lat, layer.getLatLng().lng) });
+            }
+        });
+
+        this.dragRollbackState = rollback;
+    }
+
+    private restoreDragRollbackState(): void {
+        if (!this.dragRollbackState) return;
+
+        this.dragRollbackState.forEach((state, layer) => {
+            if (layer instanceof L.Polyline && state.latlngs) {
+                layer.setLatLngs(this.cloneLatLngStructure(state.latlngs) as any);
+                layer.redraw();
+                return;
+            }
+
+            if ((layer instanceof L.Circle || layer instanceof L.Marker) && state.latlng) {
+                layer.setLatLng(L.latLng(state.latlng.lat, state.latlng.lng));
+            }
+        });
+
+        this.dragRollbackState = null;
+    }
+
+    private wouldCurrentDragCreateOverlap(): boolean {
+        if (!this.dragRollbackState) return false;
+
+        const changedPolygonLayers = Array.from(this.dragRollbackState.entries())
+            .filter((entry): entry is [L.Polygon, LayerRollbackState] => entry[0] instanceof L.Polygon && Boolean(entry[1].feature));
+
+        if (changedPolygonLayers.length === 0) return false;
+
+        const allPolygons = this.store.getLayers().filter((layer): layer is L.Polygon => layer instanceof L.Polygon);
+        const currentFeatures = new Map<L.Polygon, GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>>();
+
+        allPolygons.forEach((layer) => {
+            const feature = sanitizePolygonFeature(
+                layer.toGeoJSON() as GeoJSON.Feature<GeoJSON.Polygon | GeoJSON.MultiPolygon>,
+            );
+            if (feature) currentFeatures.set(layer, feature);
+        });
+
+        const changedLayerSet = new Set(changedPolygonLayers.map(([layer]) => layer));
+
+        for (const [changedLayer, snapshot] of changedPolygonLayers) {
+            const beforeChanged = snapshot.feature;
+            const afterChanged = currentFeatures.get(changedLayer);
+            if (!beforeChanged || !afterChanged) continue;
+
+            for (const otherLayer of allPolygons) {
+                if (otherLayer === changedLayer) continue;
+                if (changedLayerSet.has(otherLayer) && !this.shouldCheckChangedPair(changedLayer, otherLayer)) continue;
+
+                const beforeOther = (this.dragRollbackState.get(otherLayer)?.feature)
+                    ?? currentFeatures.get(otherLayer);
+                const afterOther = currentFeatures.get(otherLayer);
+
+                if (!beforeOther || !afterOther) continue;
+
+                const beforeOverlap = getPolygonOverlapArea(beforeChanged, beforeOther);
+                const afterOverlap = getPolygonOverlapArea(afterChanged, afterOther);
+
+                if (afterOverlap > beforeOverlap + EditMode.OVERLAP_AREA_TOLERANCE) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private shouldCheckChangedPair(first: L.Polygon, second: L.Polygon): boolean {
+        const layers = Array.from(this.dragRollbackState?.keys() ?? []).filter(
+            (layer): layer is L.Polygon => layer instanceof L.Polygon,
+        );
+
+        return layers.indexOf(first) < layers.indexOf(second);
+    }
+
+    private cloneLatLngStructure(value: any): any {
+        if (!Array.isArray(value)) return value;
+
+        return value.map((item) => {
+            if (Array.isArray(item)) {
+                return this.cloneLatLngStructure(item);
+            }
+
+            if (item instanceof L.LatLng || typeof item?.lat === 'number') {
+                return L.latLng(item.lat, item.lng);
+            }
+
+            return item;
+        });
     }
 
     private changedSegmentsIntersect(points: L.LatLng[], changedSegments: number[], isPolygon: boolean): boolean {
