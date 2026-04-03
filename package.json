@@ -1,10 +1,17 @@
 {
   "name": "leaflet-anvil",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "A minimal drawing and editing toolkit for Leaflet.",
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
   "files": [
     "dist"
   ],

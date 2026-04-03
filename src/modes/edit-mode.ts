@@ -134,7 +134,7 @@ export class EditMode implements Mode {
         }
 
         const layer = e.target as L.Layer;
-        const isMultiSelect = e.originalEvent.shiftKey || this.options.magnetic;
+        const isMultiSelect = e.originalEvent.shiftKey;
 
         if (!isMultiSelect) {
             if (this.activeLayers.has(layer) && this.activeLayers.size === 1) return;
