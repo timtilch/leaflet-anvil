@@ -17,18 +17,23 @@ export function getSnapLatLng(
 
     const snapDistance = options.snapDistance || 10;
     const basePoint = map.latLngToContainerPoint(latlng);
+    const minPoint = basePoint.subtract(L.point(snapDistance, snapDistance));
+    const maxPoint = basePoint.add(L.point(snapDistance, snapDistance));
+    const searchBounds = L.latLngBounds(
+        map.containerPointToLatLng(minPoint),
+        map.containerPointToLatLng(maxPoint),
+    );
 
     let closestPoint: L.LatLng | null = null;
     let minDistance = snapDistance;
 
     const skipLayers = Array.isArray(skipLayer) ? skipLayer : (skipLayer ? [skipLayer] : []);
-    const bounds = map.getBounds().pad(0.1);
 
     store.getGroup().eachLayer((layer: any) => {
         if (skipLayers.includes(layer)) return;
 
-        // Optimization: check layer bounds first
-        if (layer.getBounds && !bounds.intersects(layer.getBounds())) return;
+        // Only inspect layers close enough to actually snap.
+        if (layer.getBounds && !searchBounds.intersects(layer.getBounds())) return;
 
         const pointsToCheck: L.LatLng[] = [];
 

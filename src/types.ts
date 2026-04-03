@@ -15,6 +15,7 @@ export enum AnvilMode {
     Union = 'union',
     Subtract = 'subtract',
     Edit = 'edit',
+    Topology = 'topology',
     Delete = 'delete',
     Off = 'off'
 }

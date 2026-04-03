@@ -72,12 +72,11 @@ export function fireMapMouseMove(map: L.Map, lat: number, lng: number): void {
     } as L.LeafletMouseEvent);
 }
 
-export function fireLayerClick(layer: L.Layer, lat: number, lng: number): void {
+export function fireLayerClick(layer: L.Layer, lat: number, lng: number, mouseEventInit?: MouseEventInit): void {
     const latlng = L.latLng(lat, lng);
     (layer as any).fire('click', {
         latlng,
         target: layer,
-        originalEvent: new MouseEvent('click'),
+        originalEvent: new MouseEvent('click', mouseEventInit),
     } as L.LeafletMouseEvent);
 }
-

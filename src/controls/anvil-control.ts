@@ -4,6 +4,7 @@ import {
     Hand,
     MapPin,
     Move,
+    Network,
     Pentagon,
     Power,
     RectangleHorizontal,
@@ -50,6 +51,7 @@ const MODE_CONFIGS: ModeConfig[] = [
     { id: AnvilMode.Scale, defaultTooltip: 'Scale', icon: Scaling },
     { id: AnvilMode.Rotate, defaultTooltip: 'Rotate', icon: RotateCw },
     { id: AnvilMode.Edit, defaultTooltip: 'Edit', icon: SquarePen },
+    { id: AnvilMode.Topology, defaultTooltip: 'Topology', icon: Network },
     { id: AnvilMode.Delete, defaultTooltip: 'Delete', icon: Trash2 },
     { id: AnvilMode.Off, defaultTooltip: 'Turn Off', icon: Power },
 ];

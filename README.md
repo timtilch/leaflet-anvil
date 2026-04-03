@@ -9,12 +9,12 @@ TypeScript features, and support for complex geometric operations like Union and
 ## Features
 
 - **Drawing Modes**: Marker, Polylines, Polygons, Rectangles, Squares, Triangles, Circles, and Freehand Drawing.
-- **Editing Tools**: Drag, Scale, Rotate, and Vertex editing.
+- **Editing Tools**: Drag, Scale, Rotate, vertex editing, and full-layer topology editing.
 - **Geometric Operations**:
     - `Union`: Merge two polygons into one.
     - `Subtract`: Subtract one polygon from another.
     - `Cut` & `Split`: Cut lines or split areas.
-- **Smart Helpers**: Snapping to existing points and Magnetic mode.
+- **Smart Helpers**: Snapping to existing points, topology-aware splitting, and linked vertices across touching layers while editing.
 - **Event-driven**: Easy integration through a consistent event system.
 
 ## Installation
@@ -38,7 +38,6 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 const anvil = new Anvil(map, {
     snapping: true,
     snapDistance: 15,
-    magnetic: true,
     preventSelfIntersection: true,
     controlPosition: 'topleft',
     modes: [
@@ -70,7 +69,8 @@ Activation via `anvil.enable(AnvilMode.Name)` or through the UI toolbar:
 |               | `Square`         | Creates a square with a fixed aspect ratio.              |
 |               | `Triangle`       | Creates a triangle.                                      |
 |               | `Circle`         | Creates a circle with radius determination.              |
-| **Transform** | `Edit`           | Edit individual vertices.                                |
+| **Transform** | `Edit`           | Edit selected geometries vertex-by-vertex.               |
+|               | `Topology`       | Edit the whole layer group with linked vertices across touching layers. |
 |               | `Drag`           | Move entire geometries on the map.                       |
 |               | `Scale`          | Proportional resizing (scaling).                         |
 |               | `Rotate`         | Rotate geometries around their center.                   |
@@ -86,7 +86,6 @@ Activation via `anvil.enable(AnvilMode.Name)` or through the UI toolbar:
 |:--------------------------|:----------|:------------|:---------------------------------------------------------------------------------------------------------------------|
 | `snapping`                | `boolean` | `false`     | **Snapping:** If `true`, new points automatically snap to existing vertices of other geometries.                     |
 | `snapDistance`            | `number`  | `10`        | **Snap Distance:** Determines the distance in pixels at which a point "jumps" to the nearest existing vertex.        |
-| `magnetic`                | `boolean` | `false`     | **Magnetism:** Enhances snapping behavior. Points are actively attracted once they enter the radius.                 |
 | `preventSelfIntersection` | `boolean` | `false`     | **Validation:** Prevents edges from self-intersecting in polygons and lines. Blocks invalid segments during drawing. |
 | `pathOptions`             | `object`  | `Leaflet`   | Global fallback styles for path-based layers such as polygons, lines, rectangles and circles.                        |
 | `ghostPathOptions`        | `object`  | `Inherited` | Global fallback styles for temporary preview geometry while drawing.                                                  |
@@ -107,7 +106,7 @@ Supported per-mode keys:
 - `ghostPathOptions`: Temporary preview style while drawing.
 - `vertexOptions`: Marker options for marker-based modes.
 - `handleOptions`: Options for helper handles such as polygon close handles or edit handles.
-- `selectionPathOptions`: Highlight style for selected/active geometry in modes like `Edit`, `Drag`, `Scale`, `Rotate`, `Union` and `Subtract`.
+- `selectionPathOptions`: Highlight style for selected/active geometry in modes like `Edit`, `Topology`, `Drag`, `Scale`, `Rotate`, `Union` and `Subtract`.
 
 ```typescript
 const anvil = new Anvil(map, {
@@ -148,6 +147,17 @@ const anvil = new Anvil(map, {
                 radius: 6,
             },
         },
+        [AnvilMode.Topology]: {
+            selectionPathOptions: {
+                color: '#0891b2',
+                weight: 3,
+            },
+            handleOptions: {
+                color: '#0891b2',
+                fillColor: '#ecfeff',
+                radius: 5,
+            },
+        },
         [AnvilMode.Rotate]: {
             selectionPathOptions: {
                 color: '#8b5cf6',
@@ -169,7 +179,7 @@ const anvil = new Anvil(map, {
 ```
 
 If you want to style the active highlight of interaction modes, use `selectionPathOptions`.
-That is what controls the temporary emphasis color when a geometry is selected in modes such as `Edit` or while actively transforming it in `Drag`, `Scale`, `Rotate`, `Union` or `Subtract`.
+That is what controls the temporary emphasis color when a geometry is selected in modes such as `Edit` or while actively transforming it in `Topology`, `Drag`, `Scale`, `Rotate`, `Union` or `Subtract`.
 
 ### Custom Toolbar Tooltips
 

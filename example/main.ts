@@ -1,6 +1,7 @@
 import * as L from 'leaflet';
-import { ANVIL_EVENTS, Anvil, AnvilMode } from '../src';
+import { Anvil, ANVIL_EVENTS, AnvilMode } from '../src';
 import 'leaflet/dist/leaflet.css';
+import demoGeometries from './demo-geometries.json';
 
 const map = L.map('map').setView([51.505, -0.09], 13);
 const demoLayers = L.featureGroup();
@@ -86,6 +87,11 @@ const MODE_HINTS: Record<AnvilMode, { title: string; description: string; tip: s
         description: 'Selects geometries and exposes draggable edit handles.',
         tip: 'Shift-click keeps multiple geometries selected.',
     },
+    [AnvilMode.Topology]: {
+        title: 'Topology',
+        description: 'Edits the whole layer group at once so touching boundaries stay stitched together.',
+        tip: 'Use this when adjacent zones should move as one connected network.',
+    },
     [AnvilMode.Delete]: {
         title: 'Delete',
         description: 'Removes a clicked layer immediately.',
@@ -102,51 +108,27 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors',
 }).addTo(map);
 
-L.polygon([
-    [51.509, -0.11],
-    [51.513, -0.1],
-    [51.507, -0.082],
-    [51.501, -0.097],
-], {
-    color: '#f97316',
-    fillColor: '#fdba74',
-    fillOpacity: 0.35,
-    weight: 3,
-}).addTo(demoLayers);
-
-L.polyline([
-    [51.5, -0.13],
-    [51.502, -0.116],
-    [51.497, -0.102],
-    [51.499, -0.085],
-], {
-    color: '#0f766e',
-    weight: 5,
-}).addTo(demoLayers);
-
-L.circle([51.514, -0.075], {
-    radius: 220,
-    color: '#2563eb',
-    fillColor: '#93c5fd',
-    fillOpacity: 0.25,
-    weight: 3,
-}).addTo(demoLayers);
-
-L.marker([51.504, -0.065], {
-    icon: L.divIcon({
-        className: 'custom-marker-shell',
-        html: '<div class="custom-marker-dot"></div>',
-        iconSize: [18, 18],
-        iconAnchor: [9, 9],
+L.geoJSON(demoGeometries as GeoJSON.FeatureCollection, {
+    style: () => ({
+        color: '#14532d',
+        fillColor: '#86efac',
+        fillOpacity: 0.42,
+        weight: 2,
     }),
-}).addTo(demoLayers);
+}).eachLayer((layer) => {
+    demoLayers.addLayer(layer);
+});
+
+demoLayers.addTo(map);
+if (demoLayers.getLayers().length > 0) {
+    map.fitBounds(demoLayers.getBounds(), { padding: [24, 24] });
+}
 
 // Initialize Anvil
 const anvil = new Anvil(map, {
     layerGroup: demoLayers,
     snapping: true,
     snapDistance: 15,
-    magnetic: true,
     preventSelfIntersection: true,
     controlPosition: 'topleft',
     pathOptions: {
@@ -247,6 +229,18 @@ const anvil = new Anvil(map, {
                 radius: 6,
             },
         },
+        [AnvilMode.Topology]: {
+            selectionPathOptions: {
+                color: '#0891b2',
+                weight: 3,
+                opacity: 0.9,
+            },
+            handleOptions: {
+                color: '#0891b2',
+                fillColor: '#ecfeff',
+                radius: 5,
+            },
+        },
         [AnvilMode.Drag]: {
             selectionPathOptions: {
                 color: '#f59e0b',
@@ -293,6 +287,7 @@ const anvil = new Anvil(map, {
         ],
         [
             AnvilMode.Edit,
+            AnvilMode.Topology,
             AnvilMode.Drag,
             AnvilMode.Scale,
             AnvilMode.Rotate,
@@ -316,8 +311,8 @@ function renderHint(mode: AnvilMode | null): void {
 
     const content = mode ? MODE_HINTS[mode] : {
         title: 'Choose a Mode',
-        description: 'This demo seeds a few geometries and shows per-mode drawing plus selection styling.',
-        tip: 'Use the toolbar on the left to explore how each mode behaves.',
+        description: 'This demo loads a dense set of polygon geometries so you can test editing and topology behavior on a heavier sample.',
+        tip: 'Try Split and Edit on the seeded zones to judge how the tools behave on denser geometry.',
     };
 
     hint.innerHTML = `
